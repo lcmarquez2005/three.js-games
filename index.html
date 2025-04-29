@@ -5,11 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mis Juegos con Three.js</title>
   <style>
+    :root {
+      --primary-color: #2977b7;
+      --primary-dark: #1976d2;
+      --text-light: #ffffff;
+      --bg-dark: #121212;
+      --surface: #1e1e1e;
+    }
+
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #121212;
-      color: #fff;
+      font-family: "Roboto", sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-light);
       display: flex;
       flex-direction: column;
       min-height: 100vh;
@@ -24,10 +32,15 @@
       margin: 0;
       font-size: 2.5rem;
     }
+
     h2 {
       margin: 0;
       text-align: center;
       font-size: 2.0rem;
+    }
+
+    p {
+      color: #aaa;
     }
 
     .games-container {
@@ -41,25 +54,27 @@
     }
 
     .game-button {
-      padding: 1rem;
-      font-size: 1.2rem;
-      background: #1e88e5;
-      border: none;
-      border-radius: 8px;
-      color: #fff;
-      cursor: pointer;
-      transition: background 0.3s;
-      text-align: center;
+      background-color: var(--primary-color);
+      color: var(--text-light);
       text-decoration: none;
+      text-align: center;
+      padding: 0.9rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.1rem;
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+      transition: transform 0.15s ease-in-out, box-shadow 0.15s;
     }
 
     .game-button:hover {
-      background: #1565c0;
+      background-color: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
     }
 
     footer {
       margin-top: auto;
-      background: #1e1e1e;
+      background: var(--surface);
       padding: 1rem 0;
       text-align: center;
       border-top: 1px solid #333;
@@ -68,7 +83,7 @@
     }
 
     footer span {
-      color: #1e88e5;
+      color: var(--primary-color);
       font-weight: bold;
     }
   </style>
