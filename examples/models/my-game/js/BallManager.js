@@ -1,5 +1,20 @@
 import * as THREE from 'three';
-import { GRAVITY, NUM_SPHERES, SPHERE_RADIUS } from './constants.js';
+import { 
+    GRAVITY, 
+    NUM_SPHERES, 
+    SPHERE_RADIUS,
+    FIREBALL_CONFIG,
+    TEXTURE_PATHS
+} from './constants.js';
+
+const textureLoader = new THREE.TextureLoader();
+const fireTexture = textureLoader.load(TEXTURE_PATHS.FIREBALL);
+
+// Ajuste fino de la textura
+fireTexture.wrapS = THREE.ClampToEdgeWrapping;
+fireTexture.wrapT = THREE.ClampToEdgeWrapping;
+fireTexture.center.set(0.5, 0.5);
+fireTexture.rotation = 0;
 
 export class BallManager {
     constructor(scene, worldOctree, player) {
@@ -8,20 +23,44 @@ export class BallManager {
         this.player = player;
         this.spheres = [];
         this.sphereIdx = 0;
+        this.sphereLifetimes = new Array(NUM_SPHERES).fill(0);
+        this.sphereFadeStarts = new Array(NUM_SPHERES).fill(0);
 
-        this.sphereGeometry = new THREE.IcosahedronGeometry(SPHERE_RADIUS, 5);
-        this.sphereMaterial = new THREE.MeshLambertMaterial({ color: 0xdede8d });
-        // Configurar el callback para cuando el jugador quiera lanzar una bola
-        player.onBallThrow = () => this.throwBall(player.mouseTime);
 
+        // Geometría esférica con deformación para aspecto de fuego
+        this.sphereGeometry = new THREE.SphereGeometry(SPHERE_RADIUS, 64, 64);
+        const positionAttr = this.sphereGeometry.attributes.position;
+
+        for (let i = 0; i < positionAttr.count; i++) {
+            const x = positionAttr.getX(i);
+            const y = positionAttr.getY(i);
+            const z = positionAttr.getZ(i);
+            const scale = 1 + 0.3 * Math.random();
+            positionAttr.setXYZ(i, x * scale, y * scale, z * scale);
+        }
+        positionAttr.needsUpdate = true;
+
+        // Material que simula fuego con transparencia
+        this.sphereMaterial = new THREE.MeshStandardMaterial({
+            map: fireTexture,
+            emissive: new THREE.Color(0xff4400),
+            emissiveIntensity: 1.8,
+            roughness: 0.4,
+            metalness: 0.0,
+            transparent: true,
+            opacity: 1.0
+        });
+
+        // player.onBallThrow = () => this.throwBall(player.mouseTime);
         this.initSpheres();
     }
 
     initSpheres() {
         for (let i = 0; i < NUM_SPHERES; i++) {
-            const sphereMesh = new THREE.Mesh(this.sphereGeometry, this.sphereMaterial);
+            const sphereMesh = new THREE.Mesh(this.sphereGeometry, this.sphereMaterial.clone());
             sphereMesh.castShadow = true;
             sphereMesh.receiveShadow = true;
+            sphereMesh.visible = false;
             this.scene.add(sphereMesh);
 
             this.spheres.push({
@@ -29,35 +68,59 @@ export class BallManager {
                 collider: new THREE.Sphere(new THREE.Vector3(0, -100, 0), SPHERE_RADIUS),
                 velocity: new THREE.Vector3(),
                 active: false,
-                userData: {} // Añadimos userData para los blancos
+                userData: {}
             });
         }
     }
 
     throwBall(mouseTime) {
         const sphere = this.spheres[this.sphereIdx];
-        sphere.active = true; // Marcamos como activa
-        
-        this.player.camera.getWorldDirection(this.player.playerDirection);
+        sphere.active = true;
+        sphere.mesh.visible = true;
+        sphere.mesh.material.opacity = 1.0;
+
+        const currentTime = performance.now();
+        this.sphereLifetimes[this.sphereIdx] = currentTime + FIREBALL_CONFIG.LIFETIME;
+        this.sphereFadeStarts[this.sphereIdx] = currentTime + FIREBALL_CONFIG.FADE_START;
+
+        // Usamos la dirección de la cámara del jugador
+        const throwDirection = this.player.cameraController.getThrowDirection();
         sphere.collider.center.copy(this.player.playerCollider.end)
-            .addScaledVector(this.player.playerDirection, this.player.playerCollider.radius * 1.5);
-    
-        const impulse = 15 + 30 * (1 - Math.exp((mouseTime - performance.now()) * 0.001));
-        sphere.velocity.copy(this.player.playerDirection).multiplyScalar(impulse);
+            .addScaledVector(throwDirection, this.player.playerCollider.radius * 1.5);
+
+        const impulse = FIREBALL_CONFIG.IMPULSE_BASE + 
+                       FIREBALL_CONFIG.IMPULSE_MULTIPLIER * 
+                       (1 - Math.exp((mouseTime - currentTime) * 0.001));
+        
+        sphere.velocity.copy(throwDirection).multiplyScalar(impulse);
         sphere.velocity.addScaledVector(this.player.playerVelocity, 2);
-    
+
         this.sphereIdx = (this.sphereIdx + 1) % this.spheres.length;
     }
 
     updateSpheres(deltaTime) {
-        const vector1 = new THREE.Vector3();
-        const vector2 = new THREE.Vector3();
-        const vector3 = new THREE.Vector3();
+        const currentTime = performance.now();
 
-        this.spheres.forEach(sphere => {
+        this.spheres.forEach((sphere, index) => {
+            if (!sphere.active) return;
+
+            // Manejar desvanecimiento
+            if (currentTime > this.sphereFadeStarts[index]) {
+                const fadeProgress = (currentTime - this.sphereFadeStarts[index]) / FIREBALL_CONFIG.FADE_DURATION;
+                sphere.mesh.material.opacity = Math.max(0, 1 - fadeProgress);
+            }
+
+            // Desactivar cuando expire el tiempo
+            if (currentTime > this.sphereLifetimes[index]) {
+                sphere.active = false;
+                sphere.mesh.visible = false;
+                return;
+            }
+
+            // Actualizar física
             sphere.collider.center.addScaledVector(sphere.velocity, deltaTime);
-            const result = this.worldOctree.sphereIntersect(sphere.collider);
 
+            const result = this.worldOctree.sphereIntersect(sphere.collider);
             if (result) {
                 sphere.velocity.addScaledVector(result.normal, -result.normal.dot(sphere.velocity) * 1.5);
                 sphere.collider.center.add(result.normal.multiplyScalar(result.depth));
@@ -65,8 +128,9 @@ export class BallManager {
                 sphere.velocity.y -= GRAVITY * deltaTime;
             }
 
-            const damping = Math.exp(-1.5 * deltaTime) - 1;
+            const damping = Math.exp(-FIREBALL_CONFIG.DAMPING_FACTOR * deltaTime) - 1;
             sphere.velocity.addScaledVector(sphere.velocity, damping);
+
             this.handlePlayerSphereCollision(sphere);
         });
 
@@ -106,8 +170,12 @@ export class BallManager {
     handleSpheresCollisions() {
         for (let i = 0; i < this.spheres.length; i++) {
             const s1 = this.spheres[i];
+            if (!s1.active) continue;
+            
             for (let j = i + 1; j < this.spheres.length; j++) {
                 const s2 = this.spheres[j];
+                if (!s2.active) continue;
+
                 const d2 = s1.collider.center.distanceToSquared(s2.collider.center);
                 const r = s1.collider.radius + s2.collider.radius;
                 const r2 = r * r;
@@ -127,5 +195,4 @@ export class BallManager {
             }
         }
     }
-
 }

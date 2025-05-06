@@ -33,12 +33,18 @@ export class Game {
             this.player
         );
 
+        // Configurar el callback para disparar bolas
+        this.player.controls.onBallThrow = (mouseTime) => {
+            this.ballManager.throwBall(mouseTime);
+        };
+
         // Inicializar el administrador de blancos
         this.targetManager = new TargetManager(
             this.gameWorld.scene,
             this.gameWorld.worldOctree,
             this.ballManager
         );
+
 
         // Configurar UI de puntuación
         this.setupScoreUI();
@@ -63,148 +69,105 @@ export class Game {
         document.body.appendChild(this.scoreElement);
     }
 
-            async loadGameWorld() {
-                try {
-                    // Cargar el mundo (versión asíncrona)
-                    await this.gameWorld.loadWorld();
+    async loadGameWorld() {
+        try {
+            await this.gameWorld.loadWorld();
+            this.player.resetPosition();
+            this.startAnimation();
+        } catch (error) {
+            console.error('Error loading game world:', error);
+        }
+    }
 
-                    // Posicionar al jugador después de cargar el mundo
-                    this.player.resetPosition();
+    startAnimation() {
+        this.renderer.setAnimationLoop(() => this.animate());
+    }
 
-                    // Iniciar animación
-                    this.startAnimation();
-                } catch (error) {
-                    console.error('Error loading game world:', error);
-                    // Mostrar mensaje de error al usuario si es necesario
-                }
+    initRenderer() {
+        this.renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true
+        });
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.VSMShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.container.appendChild(this.renderer.domElement);
+    }
+
+    initCamera() {
+        this.camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        this.camera.position.set(0, 2, -5);
+    }
+
+    initStats() {
+        const stats = new Stats();
+        stats.domElement.style.position = 'absolute';
+        stats.domElement.style.top = '0px';
+        stats.domElement.style.left = '0px';
+        this.container.appendChild(stats.domElement);
+        return stats;
+    }
+
+    initEventListeners() {
+        window.addEventListener('resize', () => this.onWindowResize());
+
+        this.container.addEventListener('mousedown', (event) => {
+            if (event.button === 0) {
+                document.body.requestPointerLock();
+                this.player.controls.mouseTime = performance.now();
             }
+        });
 
-            startAnimation() {
-                // Separar la animación para mayor control
-                this.renderer.setAnimationLoop(() => this.animate());
+        document.addEventListener('mouseup', (event) => {
+            if (event.button === 0 && document.pointerLockElement !== null) {
+                this.ballManager.throwBall();
             }
+        });
 
-            initRenderer() {
-                this.renderer = new THREE.WebGLRenderer({
-                    antialias: true
-                });
-                this.renderer.setPixelRatio(window.devicePixelRatio);
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-
-                // No iniciamos el animation loop aquí todavía
-                this.renderer.shadowMap.enabled = true;
-                this.renderer.shadowMap.type = THREE.VSMShadowMap;
-                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-                this.container.appendChild(this.renderer.domElement);
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'c') {
+                // Cambiar ángulo de cámara si implementas esta funcionalidad
+                // this.player.cameraController.switchAngle();
             }
+        });
+    }
 
+    onWindowResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
 
-            initRenderer() {
-                this.renderer = new THREE.WebGLRenderer({
-                    antialias: true,
-                    alpha: true  // Permitir fondo transparente si es necesario
-                });
-                this.renderer.setPixelRatio(window.devicePixelRatio);
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setAnimationLoop(() => this.animate());
-                this.renderer.shadowMap.enabled = true;
-                this.renderer.shadowMap.type = THREE.VSMShadowMap;
-                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-                this.renderer.outputEncoding = THREE.sRGBEncoding;  // Mejor manejo de colores
-                this.container.appendChild(this.renderer.domElement);
-            }
+    animate() {
+        const deltaTime = Math.min(0.05, this.gameWorld.clock.getDelta()) / STEPS_PER_FRAME;
+    
+        for (let i = 0; i < STEPS_PER_FRAME; i++) {
+            // Actualizar controles y física del jugador
+            this.player.controls.update(deltaTime);
+            this.player.update(deltaTime);
+            
+            this.ballManager.updateSpheres(deltaTime);
+            this.player.teleportIfOob();
+            this.targetManager.checkAllCollisions();
+        }
+    
+        this.renderer.render(this.gameWorld.scene, this.camera);
+        this.stats.update();
+        this.scoreElement.textContent = `Puntuación: ${this.targetManager.getScore()}`;
+    }
 
-            initCamera() {
-                // Configuración de cámara en tercera persona
-                this.camera = new THREE.PerspectiveCamera(
-                    75,  // Campo de visión más amplio para tercera persona
-                    window.innerWidth / window.innerHeight,
-                    0.1,
-                    1000
-                );
-
-                // Posición inicial será ajustada por el jugador
-                this.camera.position.set(0, 2, -5);
-            }
-
-            initStats() {
-                const stats = new Stats();
-                stats.domElement.style.position = 'absolute';
-                stats.domElement.style.top = '0px';
-                stats.domElement.style.left = '0px';  // Asegurar que no cubra controles
-                this.container.appendChild(stats.domElement);
-                return stats;
-            }
-
-            initEventListeners() {
-                // Manejo de redimensionamiento
-                window.addEventListener('resize', () => this.onWindowResize());
-
-                // Control de ratón para tercera persona
-                this.container.addEventListener('mousedown', (event) => {
-                    // Solo capturar el ratón con clic izquierdo
-                    if (event.button === 0) {
-                        document.body.requestPointerLock();
-                        this.player.mouseTime = performance.now();
-                    }
-                });
-
-                // Disparar bolas
-                document.addEventListener('mouseup', (event) => {
-                    if (event.button === 0 && document.pointerLockElement !== null) {
-                        this.ballManager.throwBall();
-                    }
-                });
-
-                // Teclado para mover la cámara (opcional)
-                document.addEventListener('keydown', (event) => {
-                    if (event.key === 'c') {  // Tecla C para cambiar ángulo de cámara
-                        this.player.switchCameraAngle();
-                    }
-                });
-            }
-
-            onWindowResize() {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-
-                // Notificar al jugador del redimensionamiento si es necesario
-                if (this.player.onWindowResize) {
-                    this.player.onWindowResize();
-                }
-            }
-
-            animate() {
-                const deltaTime = Math.min(0.05, this.gameWorld.clock.getDelta()) / STEPS_PER_FRAME;
-        
-                // Actualización física en pasos discretos
-                for (let i = 0; i < STEPS_PER_FRAME; i++) {
-                    this.player.controls(deltaTime);
-                    this.player.update(deltaTime);
-                    this.ballManager.updateSpheres(deltaTime);
-                    this.player.teleportIfOob();
-                    
-                    // Verificar colisiones entre bolas y blancos
-                    this.targetManager.checkAllCollisions();
-                }
-        
-                // Renderizado
-                this.renderer.render(this.gameWorld.scene, this.camera);
-        
-                // Actualizar estadísticas
-                this.stats.update();
-        
-                // Actualizar puntuación
-                this.scoreElement.textContent = `Puntuación: ${this.targetManager.getScore()}`;
-            }
-
-            // Método para limpieza
-            dispose() {
-                window.removeEventListener('resize', this.onWindowResize);
-                this.renderer.dispose();
-                if (this.gameWorld) this.gameWorld.dispose();
-                if (this.player) this.player.dispose();
-            }
-
+    dispose() {
+        window.removeEventListener('resize', this.onWindowResize);
+        this.renderer.dispose();
+        if (this.gameWorld) this.gameWorld.dispose();
+        if (this.player) this.player.dispose();
+    }
 }

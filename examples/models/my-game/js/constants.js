@@ -49,7 +49,43 @@ export const TARGET_CONFIG = {
     EXPLOSION_STRENGTH: 5,
     EXPLOSION_DURATION: 1
 };
+// Configuración de bolas de fuego
+export const FIREBALL_CONFIG = {
+    LIFETIME: 2000,        // 2 segundos en ms
+    FADE_START: 1500,      // Comienza a desvanecer a los 1.5 segundos
+    FADE_DURATION: 500,    // Duración del desvanecimiento en ms
+    IMPULSE_BASE: 15,      // Fuerza base del lanzamiento
+    IMPULSE_MULTIPLIER: 30,// Multiplicador de fuerza adicional
+    BOUNCE_FACTOR: 1.5,    // Factor de rebote
+    DAMPING_FACTOR: 1.5    // Factor de amortiguación
+};
 
 export const BALL_CONFIG = {
     // ... otras constantes de bola si las necesitas ...
+};
+// constants.js
+
+
+// Configuración del jugador
+export const PLAYER_CONFIG = {
+    RADIUS: 0.5,
+    SPEED: 5,
+    JUMP_FORCE: 15
+};
+
+// Configuración física
+export const PHYSICS_CONFIG = {
+    COLLISION_THRESHOLD: 0.01,
+    VELOCITY_EPSILON: 0.001
+};
+
+// Rutas de texturas
+export const TEXTURE_PATHS = {
+    FIREBALL: 'textures/fireball.png',
+    // Agrega otras texturas aquí
+};
+
+// Configuración de renderizado
+export const RENDER_SETTINGS = {
+    SHADOW_MAP_SIZE: 2048
 };
