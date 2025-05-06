@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>three.js - misc - octree collisions</title>
+    <meta charset=utf-8 />
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="main.css">
+</head>
+
+<body>
+    <div id="info">
+        Octree threejs demo - basic collisions with static triangle mesh<br />
+        MOUSE to look around and to throw balls<br />
+        WASD to move and SPACE to jump
+    </div>
+    <div id="container"></div>
+
+    <script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js",
+					"three/addons/": "./jsm/"
+				}
+			}
+		</script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import Stats from 'three/addons/libs/stats.module.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { Octree } from 'three/addons/math/Octree.js';
+        import { OctreeHelper } from 'three/addons/helpers/OctreeHelper.js';
+        import { Capsule } from 'three/addons/math/Capsule.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+        // Constantes globales
+        const GRAVITY = 10;
+        const STEPS_PER_FRAME = 5;
+        const NUM_SPHERES = 100;
+        const SPHERE_RADIUS = 0.2;
+
+        class GameWorld {
+            constructor() {
+                // Propiedades esenciales
+                this.scene = new THREE.Scene();
+                this.clock = new THREE.Clock();
+                this.worldOctree = new Octree();
+                this.textureLoader = new THREE.TextureLoader();
+
+                // Propiedades adicionales para mejor organización
+                this.ground = null;         // Referencia al suelo si lo creas
+                this.worldModel = null;      // Referencia al modelo GLTF
+                this.helper = null;          // Referencia al OctreeHelper
+                this.debugMode = false;      // Estado del modo debug
+
+                this.initScene();
+            }
+
+            initScene() {
+                this.scene.background = new THREE.Color(0x88ccee);
+                this.scene.fog = new THREE.Fog(0x88ccee, 0, 50);
+            }
+
+            loadWorld() {
+                const loader = new GLTFLoader().setPath('./models/gltf/');
+                loader.load('collision-world.glb', (gltf) => {
+                    this.scene.add(gltf.scene);
+                    this.worldOctree.fromGraphNode(gltf.scene);
+
+                    // Cargar textura para el mundo 3D
+                    const worldTexture = this.textureLoader.load('textures/minecraft/atlas.png', (texture) => {
+                        texture.wrapS = THREE.RepeatWrapping;
+                        texture.wrapT = THREE.RepeatWrapping;
+                        texture.repeat.set(0.2, 0.2); // Ajusta este valor según necesites
+
+                        gltf.scene.traverse((child) => {
+                            if (child.isMesh) {
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+
+                                // Crear nuevo material con la textura
+                                const material = new THREE.MeshStandardMaterial({
+                                    map: texture,
+                                    roughness: 0.7,
+                                    metalness: 0.1
+                                });
+
+                                // Aplicar el nuevo material
+                                child.material = material;
+
+                                // Si el modelo tiene UVs descompensadas, puedes escalarlas
+                                if (child.geometry.attributes.uv) {
+                                    const uvArray = child.geometry.attributes.uv.array;
+                                    for (let i = 0; i < uvArray.length; i++) {
+                                        uvArray[i] *= 5; // Ajusta este factor según necesites
+                                    }
+                                    child.geometry.attributes.uv.needsUpdate = true;
+                                }
+                            }
+                        });
+                    });
+
+                    const helper = new OctreeHelper(this.worldOctree);
+                    helper.visible = false;
+                    this.scene.add(helper);
+
+                    const gui = new GUI({ width: 200 });
+                    gui.add({ debug: false }, 'debug').onChange((value) => {
+                        helper.visible = value;
+                    });
+                });
+            }
+
+
+        }
+        class Lighting {
+            constructor(scene) {
+                this.scene = scene;
+                this.initLights();
+            }
+
+            initLights() {
+                // Luz ambiental
+                const fillLight1 = new THREE.HemisphereLight(0x8dc1de, 0x00668d, 1.5);
+                fillLight1.position.set(2, 1, 1);
+                this.scene.add(fillLight1);
+
+                // Luz direccional con sombras
+                this.directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
+                this.directionalLight.position.set(-5, 25, -1);
+                this.directionalLight.castShadow = true;
+                this.directionalLight.shadow.camera.near = 0.01;
+                this.directionalLight.shadow.camera.far = 500;
+                this.directionalLight.shadow.camera.right = 30;
+                this.directionalLight.shadow.camera.left = -30;
+                this.directionalLight.shadow.camera.top = 30;
+                this.directionalLight.shadow.camera.bottom = -30;
+                this.directionalLight.shadow.mapSize.width = 1024;
+                this.directionalLight.shadow.mapSize.height = 1024;
+                this.directionalLight.shadow.radius = 4;
+                this.directionalLight.shadow.bias = -0.00006;
+                this.scene.add(this.directionalLight);
+            }
+        }
+        class Player {
+            constructor(camera, worldOctree, scene) {
+                this.camera = camera;
+                this.worldOctree = worldOctree;
+                this.scene = scene;
+                this.camera.rotation.order = 'YXZ';
+
+                // Configuración de altura
+                this.colliderHeight = 0; // Altura del collider en metros
+                this.modelYOffset = -.3;  // Ajuste para posicionar el modelo en el suelo
+
+                // Collider físico
+                this.playerCollider = new Capsule(
+                    new THREE.Vector3(0, 0.35, 0),
+                    new THREE.Vector3(0, this.colliderHeight, 0),
+                    0.35
+                );
+
+                // Movimiento y estado
+                this.playerVelocity = new THREE.Vector3();
+                this.playerDirection = new THREE.Vector3();
+                this.playerOnFloor = false;
+                this.keyStates = {};
+                this.mouseTime = 0;
+
+                // Configuración de cámara en tercera persona
+                this.cameraOffset = new THREE.Vector3(0, 2, -2); // Posición relativa al jugador
+                this.cameraLookAtHeight = 1; // Altura a la que mira la cámara
+                this.cameraRotation = new THREE.Vector2(0, 0); // Rotación de cámara (x, y)
+
+                // Modelo 3D
+                this.model = null;
+                this.mixer = null;
+                this.animations = {};
+                this.currentAction = null;
+
+                this.initControls();
+                this.loadModel();
+            }
+
+            async loadModel() {
+                const loader = new GLTFLoader();
+                
+                try {
+                    const gltf = await loader.loadAsync('my-character.glb');
+                    this.model = gltf.scene;
+                    
+                    // Ajustar modelo para que toque el suelo
+                    this.model.position.y += this.modelYOffset;
+                    this.model.scale.set(0.5, 0.5, 0.5);
+                    this.model.castShadow = true;
+                    this.model.receiveShadow = true;
+
+                    // Configurar animaciones si existen
+                    if (gltf.animations?.length > 0) {
+                        this.mixer = new THREE.AnimationMixer(this.model);
+                        gltf.animations.forEach(anim => this.animations[anim.name] = anim);
+                        this.setAnimation('Idle');
+                    }
+
+                    this.scene.add(this.model);
+                } catch (error) {
+                    console.error('Error loading model:', error);
+                    // Modelo de fallback
+                    const geometry = new THREE.CapsuleGeometry(0.35, 1, 4, 8);
+                    const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+                    this.model = new THREE.Mesh(geometry, material);
+                    this.scene.add(this.model);
+                }
+            }
+
+            update(deltaTime) {
+                // Actualizar física
+                let damping = Math.exp(-4 * deltaTime) - 1;
+                if (!this.playerOnFloor) {
+                    this.playerVelocity.y -= GRAVITY * deltaTime;
+                    damping *= 0.1;
+                }
+
+                this.playerVelocity.addScaledVector(this.playerVelocity, damping);
+                const deltaPosition = this.playerVelocity.clone().multiplyScalar(deltaTime);
+                this.playerCollider.translate(deltaPosition);
+
+                this.handleCollisions();
+                this.updateCamera(deltaTime);
+                this.updateModel(deltaTime);
+            }
+
+            updateCamera(deltaTime) {
+                // Calcular rotación de cámara
+                const quaternion = new THREE.Quaternion().setFromEuler(
+                    new THREE.Euler(
+                        THREE.MathUtils.clamp(this.cameraRotation.x, -Math.PI/3, Math.PI/3),
+                        this.cameraRotation.y,
+                        0,
+                        'YXZ'
+                    )
+                );
+
+                // Calcular posición de cámara
+                const offset = this.cameraOffset.clone().applyQuaternion(quaternion);
+                const targetPosition = this.playerCollider.end.clone().add(offset);
+                this.camera.position.lerp(targetPosition, 0.1);
+
+                // Calcular punto de mira (centro del jugador)
+                const lookAt = this.playerCollider.end.clone();
+                lookAt.y += this.cameraLookAtHeight;
+                this.camera.lookAt(lookAt);
+
+                // Actualizar dirección de movimiento relativa a la cámara
+                this.camera.getWorldDirection(this.playerDirection);
+                this.playerDirection.y = 0;
+                this.playerDirection.normalize();
+            }
+
+            updateModel(deltaTime) {
+                if (!this.model) return;
+
+                // Posición del modelo con ajuste de altura
+                this.model.position.copy(this.playerCollider.end);
+                this.model.position.y += this.modelYOffset;
+
+                // Rotación según dirección de movimiento
+                if (this.playerVelocity.x !== 0 || this.playerVelocity.z !== 0) {
+                    this.model.rotation.y = Math.atan2(
+                        this.playerVelocity.x, 
+                        this.playerVelocity.z
+                    );
+                }
+
+                // Actualizar animaciones
+                if (this.mixer) {
+                    const speed = this.playerVelocity.length();
+                    if (this.playerOnFloor) {
+                        this.setAnimation(speed > 0.1 ? 'Run' : 'Idle');
+                        if (this.currentAction === 'Run') {
+                            this.mixer.timeScale = speed / 5;
+                        }
+                    } else {
+                        this.setAnimation('Jump');
+                    }
+                    this.mixer.update(deltaTime);
+                }
+            }
+
+            setAnimation(name) {
+                if (!this.animations[name] || !this.mixer || this.currentAction === name) return;
+                
+                if (this.currentAction) {
+                    this.mixer.clipAction(this.animations[this.currentAction]).fadeOut(0.2);
+                }
+                
+                const action = this.mixer.clipAction(this.animations[name]);
+                action.reset().fadeIn(0.2).play();
+                this.currentAction = name;
+            }
+
+            resetPosition() {
+                // Resetear collider
+                this.playerCollider.start.set(0, 0.35, 0);
+                this.playerCollider.end.set(0, this.colliderHeight, 0);
+                
+                // Resetear modelo
+                if (this.model) {
+                    this.model.position.copy(this.playerCollider.end);
+                    this.model.position.y += this.modelYOffset;
+                    this.model.rotation.set(0, 0, 0);
+                }
+                
+                // Resetear cámara
+                this.cameraRotation.set(0, 0);
+                this.updateCamera(0);
+            }
+
+                initControls() {
+                    document.addEventListener('keydown', (event) => {
+                        this.keyStates[event.code] = true;
+                    });
+
+                    document.addEventListener('keyup', (event) => {
+                        this.keyStates[event.code] = false;
+                    });
+
+                    document.body.addEventListener('mousemove', (event) => {
+                        if (document.pointerLockElement === document.body) {
+                            this.cameraRotation.y -= event.movementX / 500;
+                            // this.cameraRotation.x -= event.movementY / 500;
+                        }
+                    });
+
+                    document.addEventListener('mousedown', () => {
+                        this.mouseTime = performance.now();
+                    });
+
+                    document.addEventListener('mouseup', () => {
+                        if (document.pointerLockElement !== null && this.onBallThrow) {
+                            this.onBallThrow();
+                        }
+                    });
+                }
+
+                getForwardVector() {
+                    this.camera.getWorldDirection(this.playerDirection);
+                    this.playerDirection.y = 0;
+                    this.playerDirection.normalize();
+                    return this.playerDirection;
+                }
+
+                getSideVector() {
+                    this.camera.getWorldDirection(this.playerDirection);
+                    this.playerDirection.y = 0;
+                    this.playerDirection.normalize();
+                    this.playerDirection.cross(this.camera.up);
+                    return this.playerDirection;
+                }
+
+                handleCollisions() {
+                    const result = this.worldOctree.capsuleIntersect(this.playerCollider);
+                    this.playerOnFloor = false;
+
+                    if (result) {
+                        this.playerOnFloor = result.normal.y > 0;
+                        if (!this.playerOnFloor) {
+                            this.playerVelocity.addScaledVector(result.normal, -result.normal.dot(this.playerVelocity));
+                        }
+                        if (result.depth >= 1e-10) {
+                            this.playerCollider.translate(result.normal.multiplyScalar(result.depth));
+                        }
+                    }
+                }
+
+                controls(deltaTime) {
+                    const speedDelta = deltaTime * (this.playerOnFloor ? 25 : 8);
+
+                    if (this.keyStates['KeyW']) {
+                        this.playerVelocity.add(this.getForwardVector().multiplyScalar(speedDelta));
+                    }
+                    if (this.keyStates['KeyS']) {
+                        this.playerVelocity.add(this.getForwardVector().multiplyScalar(-speedDelta));
+                    }
+                    if (this.keyStates['KeyA']) {
+                        this.playerVelocity.add(this.getSideVector().multiplyScalar(-speedDelta));
+                    }
+                    if (this.keyStates['KeyD']) {
+                        this.playerVelocity.add(this.getSideVector().multiplyScalar(speedDelta));
+                    }
+                    if (this.playerOnFloor && this.keyStates['Space']) {
+                        this.playerVelocity.y = 15;
+                    }
+                }
+
+                resetPosition() {
+                    this.playerCollider.start.set(0, 0.35, 0);
+                    this.playerCollider.end.set(0, this.colliderHeight, 0);
+
+                    if (this.model) {
+                        this.model.position.copy(this.playerCollider.end);
+                        this.model.position.y += this.modelYOffset; // Aplicar offset
+                        this.model.rotation.set(0, 0, 0);
+                    }
+                    // Resetear cámara
+                    this.cameraRotation.set(0, 0);
+                    this.updateCamera(0);
+
+                }
+
+                teleportIfOob() {
+                    if (this.camera.position.y <= -25) {
+                        this.resetPosition();
+                    }
+                }
+            }
+        class BallManager {
+            constructor(scene, worldOctree, player) {
+                this.scene = scene;
+                this.worldOctree = worldOctree;
+                this.player = player;
+                this.spheres = [];
+                this.sphereIdx = 0;
+
+                this.sphereGeometry = new THREE.IcosahedronGeometry(SPHERE_RADIUS, 5);
+                this.sphereMaterial = new THREE.MeshLambertMaterial({ color: 0xdede8d });
+                // Configurar el callback para cuando el jugador quiera lanzar una bola
+                player.onBallThrow = () => this.throwBall(player.mouseTime);
+
+                this.initSpheres();
+            }
+
+            initSpheres() {
+                for (let i = 0; i < NUM_SPHERES; i++) {
+                    const sphereMesh = new THREE.Mesh(this.sphereGeometry, this.sphereMaterial);
+                    sphereMesh.castShadow = true;
+                    sphereMesh.receiveShadow = true;
+                    this.scene.add(sphereMesh);
+
+                    this.spheres.push({
+                        mesh: sphereMesh,
+                        collider: new THREE.Sphere(new THREE.Vector3(0, -100, 0), SPHERE_RADIUS),
+                        velocity: new THREE.Vector3()
+                    });
+                }
+            }
+
+            throwBall(mouseTime) {
+                const sphere = this.spheres[this.sphereIdx];
+                this.player.camera.getWorldDirection(this.player.playerDirection);
+
+                sphere.collider.center.copy(this.player.playerCollider.end)
+                    .addScaledVector(this.player.playerDirection, this.player.playerCollider.radius * 1.5);
+
+                const impulse = 15 + 30 * (1 - Math.exp((mouseTime - performance.now()) * 0.001));
+                sphere.velocity.copy(this.player.playerDirection).multiplyScalar(impulse);
+                sphere.velocity.addScaledVector(this.player.playerVelocity, 2);
+
+                this.sphereIdx = (this.sphereIdx + 1) % this.spheres.length;
+            }
+
+            updateSpheres(deltaTime) {
+                const vector1 = new THREE.Vector3();
+                const vector2 = new THREE.Vector3();
+                const vector3 = new THREE.Vector3();
+
+                this.spheres.forEach(sphere => {
+                    sphere.collider.center.addScaledVector(sphere.velocity, deltaTime);
+                    const result = this.worldOctree.sphereIntersect(sphere.collider);
+
+                    if (result) {
+                        sphere.velocity.addScaledVector(result.normal, -result.normal.dot(sphere.velocity) * 1.5);
+                        sphere.collider.center.add(result.normal.multiplyScalar(result.depth));
+                    } else {
+                        sphere.velocity.y -= GRAVITY * deltaTime;
+                    }
+
+                    const damping = Math.exp(-1.5 * deltaTime) - 1;
+                    sphere.velocity.addScaledVector(sphere.velocity, damping);
+                    this.handlePlayerSphereCollision(sphere);
+                });
+
+                this.handleSpheresCollisions();
+
+                for (const sphere of this.spheres) {
+                    sphere.mesh.position.copy(sphere.collider.center);
+                }
+            }
+
+            handlePlayerSphereCollision(sphere) {
+                const center = new THREE.Vector3().addVectors(
+                    this.player.playerCollider.start,
+                    this.player.playerCollider.end
+                ).multiplyScalar(0.5);
+
+                const sphereCenter = sphere.collider.center;
+                const r = this.player.playerCollider.radius + sphere.collider.radius;
+                const r2 = r * r;
+
+                for (const point of [this.player.playerCollider.start, this.player.playerCollider.end, center]) {
+                    const d2 = point.distanceToSquared(sphereCenter);
+                    if (d2 < r2) {
+                        const normal = new THREE.Vector3().subVectors(point, sphereCenter).normalize();
+                        const v1 = new THREE.Vector3().copy(normal).multiplyScalar(normal.dot(this.player.playerVelocity));
+                        const v2 = new THREE.Vector3().copy(normal).multiplyScalar(normal.dot(sphere.velocity));
+
+                        this.player.playerVelocity.add(v2).sub(v1);
+                        sphere.velocity.add(v1).sub(v2);
+
+                        const d = (r - Math.sqrt(d2)) / 2;
+                        sphereCenter.addScaledVector(normal, -d);
+                    }
+                }
+            }
+
+            handleSpheresCollisions() {
+                for (let i = 0; i < this.spheres.length; i++) {
+                    const s1 = this.spheres[i];
+                    for (let j = i + 1; j < this.spheres.length; j++) {
+                        const s2 = this.spheres[j];
+                        const d2 = s1.collider.center.distanceToSquared(s2.collider.center);
+                        const r = s1.collider.radius + s2.collider.radius;
+                        const r2 = r * r;
+
+                        if (d2 < r2) {
+                            const normal = new THREE.Vector3().subVectors(s1.collider.center, s2.collider.center).normalize();
+                            const v1 = new THREE.Vector3().copy(normal).multiplyScalar(normal.dot(s1.velocity));
+                            const v2 = new THREE.Vector3().copy(normal).multiplyScalar(normal.dot(s2.velocity));
+
+                            s1.velocity.add(v2).sub(v1);
+                            s2.velocity.add(v1).sub(v2);
+
+                            const d = (r - Math.sqrt(d2)) / 2;
+                            s1.collider.center.addScaledVector(normal, d);
+                            s2.collider.center.addScaledVector(normal, -d);
+                        }
+                    }
+                }
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.container = document.getElementById('container');
+                this.initRenderer();
+                this.initCamera();
+
+                // Inicializar el mundo 3D
+                this.gameWorld = new GameWorld();
+
+                // Configurar iluminación
+                this.lighting = new Lighting(this.gameWorld.scene);
+
+                // Crear jugador
+                this.player = new Player(
+                    this.camera,
+                    this.gameWorld.worldOctree,
+                    this.gameWorld.scene
+                );
+
+                // Inicializar el administrador de bolas
+                this.ballManager = new BallManager(
+                    this.gameWorld.scene,
+                    this.gameWorld.worldOctree,
+                    this.player
+                );
+
+                // Configuración de estadísticas y eventos
+                this.stats = this.initStats();
+                this.initEventListeners();
+
+                // Cargar el mundo - versión corregida
+                this.loadGameWorld();
+            }
+
+            async loadGameWorld() {
+                try {
+                    // Cargar el mundo (versión asíncrona)
+                    await this.gameWorld.loadWorld();
+
+                    // Posicionar al jugador después de cargar el mundo
+                    this.player.resetPosition();
+
+                    // Iniciar animación
+                    this.startAnimation();
+                } catch (error) {
+                    console.error('Error loading game world:', error);
+                    // Mostrar mensaje de error al usuario si es necesario
+                }
+            }
+
+            startAnimation() {
+                // Separar la animación para mayor control
+                this.renderer.setAnimationLoop(() => this.animate());
+            }
+
+            initRenderer() {
+                this.renderer = new THREE.WebGLRenderer({
+                    antialias: true
+                });
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+                // No iniciamos el animation loop aquí todavía
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.VSMShadowMap;
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.container.appendChild(this.renderer.domElement);
+            }
+
+
+            initRenderer() {
+                this.renderer = new THREE.WebGLRenderer({
+                    antialias: true,
+                    alpha: true  // Permitir fondo transparente si es necesario
+                });
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setAnimationLoop(() => this.animate());
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.VSMShadowMap;
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.outputEncoding = THREE.sRGBEncoding;  // Mejor manejo de colores
+                this.container.appendChild(this.renderer.domElement);
+            }
+
+            initCamera() {
+                // Configuración de cámara en tercera persona
+                this.camera = new THREE.PerspectiveCamera(
+                    75,  // Campo de visión más amplio para tercera persona
+                    window.innerWidth / window.innerHeight,
+                    0.1,
+                    1000
+                );
+
+                // Posición inicial será ajustada por el jugador
+                this.camera.position.set(0, 2, -5);
+            }
+
+            initStats() {
+                const stats = new Stats();
+                stats.domElement.style.position = 'absolute';
+                stats.domElement.style.top = '0px';
+                stats.domElement.style.left = '0px';  // Asegurar que no cubra controles
+                this.container.appendChild(stats.domElement);
+                return stats;
+            }
+
+            initEventListeners() {
+                // Manejo de redimensionamiento
+                window.addEventListener('resize', () => this.onWindowResize());
+
+                // Control de ratón para tercera persona
+                this.container.addEventListener('mousedown', (event) => {
+                    // Solo capturar el ratón con clic izquierdo
+                    if (event.button === 0) {
+                        document.body.requestPointerLock();
+                        this.player.mouseTime = performance.now();
+                    }
+                });
+
+                // Disparar bolas
+                document.addEventListener('mouseup', (event) => {
+                    if (event.button === 0 && document.pointerLockElement !== null) {
+                        this.ballManager.throwBall();
+                    }
+                });
+
+                // Teclado para mover la cámara (opcional)
+                document.addEventListener('keydown', (event) => {
+                    if (event.key === 'c') {  // Tecla C para cambiar ángulo de cámara
+                        this.player.switchCameraAngle();
+                    }
+                });
+            }
+
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+                // Notificar al jugador del redimensionamiento si es necesario
+                if (this.player.onWindowResize) {
+                    this.player.onWindowResize();
+                }
+            }
+
+            animate() {
+                const deltaTime = Math.min(0.05, this.gameWorld.clock.getDelta()) / STEPS_PER_FRAME;
+
+                // Actualización física en pasos discretos
+                for (let i = 0; i < STEPS_PER_FRAME; i++) {
+                    this.player.controls(deltaTime);
+                    this.player.update(deltaTime);
+                    this.ballManager.updateSpheres(deltaTime);
+                    this.player.teleportIfOob();
+                }
+
+                // Renderizado
+                this.renderer.render(this.gameWorld.scene, this.camera);
+
+                // Actualizar estadísticas
+                this.stats.update();
+
+                // Opcional: actualizar efectos post-procesamiento si los hay
+                if (this.composer) {
+                    this.composer.render();
+                }
+            }
+
+            // Método para limpieza
+            dispose() {
+                window.removeEventListener('resize', this.onWindowResize);
+                this.renderer.dispose();
+                if (this.gameWorld) this.gameWorld.dispose();
+                if (this.player) this.player.dispose();
+            }
+        }
+        // Iniciar el juego
+        const game = new Game();
+    </script>
+</body>
+
+</html>
