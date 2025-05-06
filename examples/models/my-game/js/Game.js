@@ -54,7 +54,7 @@ export class Game {
     setupScoreUI() {
         this.scoreElement = document.createElement('div');
         this.scoreElement.style.position = 'absolute';
-        this.scoreElement.style.top = '20px';
+        this.scoreElement.style.top = '60px';
         this.scoreElement.style.right = '20px';
         this.scoreElement.style.color = 'white';
         this.scoreElement.style.fontSize = '24px';
