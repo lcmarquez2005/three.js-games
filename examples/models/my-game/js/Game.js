@@ -214,7 +214,9 @@ export class Game {
     }
 
     initAudio() {
-        const audio = new Audio('gameMusic.mp3');
+        const audio = new Audio('./gameMusic.mp3');
+        this.audio = audio;
+        // console.log()
         audio.loop = true;
         audio.volume = 0.4;
         audio.play().catch(e => console.log("Audio playback blocked until user interaction."));
