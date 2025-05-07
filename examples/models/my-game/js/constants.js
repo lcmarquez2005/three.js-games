@@ -73,6 +73,14 @@ export const PLAYER_CONFIG = {
     JUMP_FORCE: 15
 };
 
+export const ANIMATION_FILES = {
+    idle: './animations/Idle.glb',
+    walk: './animations/Walking.glb',
+    run: './animations/Running.glb',
+    jump: './animations/jump.glb',
+    fall: './animations/fall.glb'
+}
+
 // Configuración física
 export const PHYSICS_CONFIG = {
     COLLISION_THRESHOLD: 0.01,

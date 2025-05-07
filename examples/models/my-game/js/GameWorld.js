@@ -14,6 +14,12 @@ export class GameWorld {
         this.worldModel = null;
         this.helper = null;
         this.debugMode = false;
+        this.scene = new THREE.Scene();
+        this.clock = new THREE.Clock();
+        this.textureLoader = new THREE.TextureLoader();
+        this.worldModel = null;
+
+        this.initScene();
 
         this.initScene();
     }
@@ -32,7 +38,7 @@ export class GameWorld {
             const worldTexture = this.textureLoader.load('../../textures/minecraft/atlas.png', (texture) => {
                 texture.wrapS = THREE.RepeatWrapping;
                 texture.wrapT = THREE.RepeatWrapping;
-                texture.repeat.set(0.2, 0.2);
+                texture.repeat.set(0.01, 0.01);
 
                 gltf.scene.traverse((child) => {
                     if (child.isMesh) {

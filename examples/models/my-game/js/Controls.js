@@ -19,7 +19,7 @@ export class Controls {
 
         document.body.addEventListener('mousemove', (event) => {
             if (document.pointerLockElement === document.body) {
-                this.player.cameraController.rotate(event.movementX / 500, event.movementY / 500);
+                this.player.cameraController.rotate(event.movementX / 500, event.movementY /-1000);
             }
         });
 

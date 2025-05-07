@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Capsule } from 'three/addons/math/Capsule.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { GRAVITY } from './constants.js';
+import { GRAVITY, ANIMATION_FILES } from './constants.js';
 import { Controls } from './Controls.js';
 import { PlayerCamera } from './Camera.js';
 
@@ -29,13 +29,7 @@ export class Player {
         this.playerOnFloor = false;
 
         // Animaciones
-        this.animationFiles = {
-            idle: './animations/Idle.glb',
-            walk: './animations/Walking.glb',
-            run: './animations/Running.glb',
-            jump: './animations/jump.glb',
-            fall: './animations/fall.glb'
-        };
+        this.animationFiles = ANIMATION_FILES;
         
         this.animationActions = {};
         this.currentAnimationAction = null;
@@ -48,6 +42,7 @@ export class Player {
         // Initialize modules
         this.controls = new Controls(this);
         this.cameraController = new PlayerCamera(this);
+        this.controls = new Controls(this);
         
         this.loadModel();
     }
@@ -173,10 +168,10 @@ export class Player {
                 }
             } else if (speed > 5) {
                 desiredAnimation = 'run';
-                this.mixer.timeScale = speed / 5;
+                this.mixer.timeScale = speed/5 ;
             } else if (speed > 0.1) {
                 desiredAnimation = 'walk';
-                this.mixer.timeScale = speed;
+                this.mixer.timeScale = speed  ;
             } else {
                 desiredAnimation = 'idle';
             }
