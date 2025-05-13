@@ -6,7 +6,7 @@ export class PlayerCamera {
         this.camera = player.camera;
         
         // Configuración de cámara en tercera persona
-        this.offset = new THREE.Vector3(0, 1.5, -2);
+        this.offset = new THREE.Vector3(0, 2.5, -2);
         this.lookAtHeight = 1;
         this.rotation = new THREE.Vector2(0, 0);
     }
