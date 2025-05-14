@@ -194,6 +194,11 @@ addScore(points = 1) {
 }
 
 gameOver() {
+        this.sound = new Audio('./js/assets/sounds/explosion.mp3');
+
+      this.sound.volume = 0.9;
+
+      this.sound.play();
   // Pantalla de Game Over con opciones
   Swal.fire({
     title: '¡Juego Terminado!',
@@ -340,17 +345,17 @@ gameOver() {
     if (this.input.isKeyPressed('ArrowRight')) targetEuler.z -= this.rollSpeed;
 
     // Cabeceo (W/S)
-    if (this.input.isKeyPressed('KeyW')) targetEuler.x -= this.pitchSpeed;
-    if (this.input.isKeyPressed('KeyS')) targetEuler.x += this.pitchSpeed;
+    if (this.input.isKeyPressed('KeyW')) targetEuler.x += this.pitchSpeed;
+    if (this.input.isKeyPressed('KeyS')) targetEuler.x -= this.pitchSpeed;
 
     // Guiñada (A/D)
     if (this.input.isKeyPressed('KeyA')) {
-      targetEuler.y += this.yawSpeed;
-      targetEuler.z += this.yawSpeed * this.bankingFactor;
-    }
-    if (this.input.isKeyPressed('KeyD')) {
       targetEuler.y -= this.yawSpeed;
       targetEuler.z -= this.yawSpeed * this.bankingFactor;
+    }
+    if (this.input.isKeyPressed('KeyD')) {
+      targetEuler.y += this.yawSpeed;
+      targetEuler.z += this.yawSpeed * this.bankingFactor;
     }
 
     // Suavizado de rotación

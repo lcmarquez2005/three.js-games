@@ -34,7 +34,7 @@ export class EnemyManager {
         if (checkCollision(laser.mesh, enemy.model, 1)) {
           enemy.destroy();
           this.player.addScore(); // Incrementar puntaje
-          this.spawnInterval = Math.max(1, this.spawnInterval - 0.1); // Acelerar spawn
+          this.spawnInterval = Math.max(0.3, this.spawnInterval - 0.3); // Acelerar spawn
           laser.destroy();
           this.player.lasers = this.player.lasers.filter(l => !l.isDestroyed);
           return false;

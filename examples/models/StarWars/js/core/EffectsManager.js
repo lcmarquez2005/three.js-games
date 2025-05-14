@@ -27,7 +27,12 @@ export class EffectsManager {
 
     // Sonido de explosión
     if (this.sound && config.soundEnabled) {
+      this.sound = new Audio('./js/assets/sounds/explosion.mp3');
+
+      this.sound.volume = 0.3;
+
       this.sound.play();
+
     }
 
     // Partículas
