@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from '/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from '../../../../jsm/loaders/GLTFLoader.js';
 import { Laser } from './Laser.js';
 import { EffectsManager } from '../core/EffectsManager.js';
 
