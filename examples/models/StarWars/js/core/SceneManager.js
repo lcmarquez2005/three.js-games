@@ -1,4 +1,4 @@
-import { GLTFLoader } from '/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from '../../../../jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 
 // ! RECUERDA TODA POSICION EN Z ESTA EN NEGATIVO
