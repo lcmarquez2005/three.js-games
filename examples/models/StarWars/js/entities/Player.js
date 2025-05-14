@@ -345,17 +345,17 @@ gameOver() {
     if (this.input.isKeyPressed('ArrowRight')) targetEuler.z -= this.rollSpeed;
 
     // Cabeceo (W/S)
-    if (this.input.isKeyPressed('KeyW')) targetEuler.x += this.pitchSpeed;
-    if (this.input.isKeyPressed('KeyS')) targetEuler.x -= this.pitchSpeed;
+    if (this.input.isKeyPressed('KeyW')) targetEuler.x -= this.pitchSpeed;
+    if (this.input.isKeyPressed('KeyS')) targetEuler.x += this.pitchSpeed;
 
     // Guiñada (A/D)
     if (this.input.isKeyPressed('KeyA')) {
-      targetEuler.y -= this.yawSpeed;
-      targetEuler.z -= this.yawSpeed * this.bankingFactor;
-    }
-    if (this.input.isKeyPressed('KeyD')) {
       targetEuler.y += this.yawSpeed;
       targetEuler.z += this.yawSpeed * this.bankingFactor;
+    }
+    if (this.input.isKeyPressed('KeyD')) {
+      targetEuler.y -= this.yawSpeed;
+      targetEuler.z -= this.yawSpeed * this.bankingFactor;
     }
 
     // Suavizado de rotación
