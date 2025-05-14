@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SceneManager } from './SceneManager.js';
-import { InputManager } from './InputManager.js';
+import { Input } from './Input.js';
 import { Player } from '../entities/Player.js';
 import { EnemyManager } from '../entities/EnemyManager.js';
 
@@ -13,7 +13,7 @@ export class Game {
     this.sceneManager = new SceneManager();
     await this.sceneManager.init();
 
-    this.input = new InputManager();
+    this.input = new Input();
     this.player = new Player(this.sceneManager.scene, this.input);
     await this.player.loadModel();
     this.sceneManager.setTarget(this.player.model);

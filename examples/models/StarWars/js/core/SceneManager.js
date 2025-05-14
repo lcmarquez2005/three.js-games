@@ -11,7 +11,7 @@ export class SceneManager {
       75,
       window.innerWidth / window.innerHeight,
       0.1,
-      1000
+      10000
     );
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -21,8 +21,9 @@ export class SceneManager {
     this.tunnelLength = 0;
     this.loadedFirst = false; // Bandera para controlar la carga del primer túnel
         this.tunnelSections = []; // Array para almacenar secciones de túnel
-    this.nextZPosition = -300; // Próxima posición Z para generar
-    this.sectionInterval = 300; // Distancia entre secciones
+    this.nextZPosition = 0; // Comenzamos desde 0 y generamos hacia atrás
+    this.sectionInterval = 300; // Longitud de cada sección
+    this.sectionsAhead = 3; // Secciones a mantener adelante del jugador
   }
 
   async init() {
@@ -84,16 +85,10 @@ export class SceneManager {
     }
   }
 
-
-
   animate() {
     requestAnimationFrame(() => this.animate());
     this.render();
   }
-
-
-
-
 
   generateInitialSections() {
     // Generar primeras 3 secciones
@@ -111,14 +106,14 @@ export class SceneManager {
   }
 
   updateTunnels(playerZ) {
-    // Eliminar secciones que quedaron atrás
-    while (this.tunnelSections[0] && 
-           playerZ - this.tunnelSections[0].position.z < -500) {
+    // Eliminar secciones demasiado atrás (optimización)
+    while (this.tunnelSections.length > 0 && 
+           playerZ - this.tunnelSections[0].position.z < -this.sectionInterval * 2) {
       this.scene.remove(this.tunnelSections.shift());
     }
 
-    // Generar nuevas secciones según sea necesario
-    while (playerZ > this.nextZPosition + this.sectionInterval) {
+    // Generar nuevas secciones hacia adelante (eje Z negativo)
+    while (this.nextZPosition > playerZ - this.sectionInterval * this.sectionsAhead) {
       this.addTunnelSection(this.nextZPosition);
       this.nextZPosition -= this.sectionInterval;
     }

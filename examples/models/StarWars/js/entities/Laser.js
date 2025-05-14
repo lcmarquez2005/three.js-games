@@ -1,31 +1,97 @@
+import * as THREE from 'three';
+
 export class Laser {
-  constructor(scene, position, direction = new THREE.Vector3(0, 0, -1), color = 0xff0000, speed = 20) {
+  constructor(scene, startPosition, direction, options = {}) {
     this.scene = scene;
-    this.speed = speed;
-    this.direction = direction.normalize();
+    // Añadir opción para invertir dirección
+    this.reverseDirection = options.reverseDirection || false;
+    
+    // Invertir dirección si es necesario
+    this.direction = this.reverseDirection 
+      ? direction.clone().normalize().negate() 
+      : direction.normalize();
+    
+    this.speed = options.speed || 60;
+    this.maxDistance = options.maxDistance || 200;
+    this.distanceTraveled = 0;
+    this.isDestroyed = false;
 
-    const geometry = new THREE.CylinderGeometry(0.05, 0.05, 1);
-    const material = new THREE.MeshBasicMaterial({ color });
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.rotation.x = Math.PI / 2; // apuntar hacia adelante
-    this.mesh.position.copy(position);
+    // Configuración por defecto
+    const config = {
+      color: 0x00ff00,
+      glowColor: 0x00ff00,
+      size: 0.1,
+      length: 2,
+      soundUrl: null,
+      ...options
+    };
 
-    scene.add(this.mesh);
+    // Geometría principal del láser
+    this.geometry = new THREE.CylinderGeometry(
+      config.size, 
+      config.size, 
+      config.length, 
+      8
+    );
+    
+    this.material = new THREE.MeshPhongMaterial({
+      color: config.color,
+      emissive: config.color,
+      emissiveIntensity: 2,
+      transparent: true,
+      opacity: 0.8
+    });
+
+    this.mesh = new THREE.Mesh(this.geometry, this.material);
+    this.mesh.position.copy(startPosition);
+    this.mesh.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 0, 1), 
+      this.direction
+    );
+
+    // Efecto de glow
+    const glowGeometry = new THREE.SphereGeometry(config.size * 2, 8, 8);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: config.glowColor,
+      transparent: true,
+      opacity: 0.3,
+      blending: THREE.AdditiveBlending
+    });
+    
+    this.glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    // Posicionar el glow según la dirección
+    const glowOffset = this.reverseDirection ? -config.length / 2 : config.length / 2;
+    this.glow.position.set(0, 0, glowOffset);
+    this.mesh.add(this.glow);
+
+    // Sonido
+    if (config.soundUrl) {
+      this.sound = new Audio(config.soundUrl);
+      this.sound.volume = 0.3;
+      this.sound.play().catch(error => console.log("Audio error:", error));
+    }
+
+    this.scene.add(this.mesh);
   }
 
   update(delta) {
-    this.mesh.position.addScaledVector(this.direction, this.speed * delta);
+    if (this.isDestroyed) return;
 
-    // Opcional: remover si sale de los límites
-    if (this.mesh.position.z < -100 || this.mesh.position.z > 100) {
+    const distance = this.speed * delta;
+    this.mesh.position.add(this.direction.clone().multiplyScalar(distance));
+    this.distanceTraveled += distance;
+
+    if (this.distanceTraveled >= this.maxDistance) {
       this.destroy();
     }
   }
 
   destroy() {
+    if (this.isDestroyed) return;
+    
     this.scene.remove(this.mesh);
-    this.mesh.geometry.dispose();
-    this.mesh.material.dispose();
+    this.geometry.dispose();
+    this.material.dispose();
     this.isDestroyed = true;
   }
 }

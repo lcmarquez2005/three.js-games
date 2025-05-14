@@ -6,8 +6,8 @@ export class PlayerCamera {
         this.camera = player.camera;
         
         // Configuración de cámara en tercera persona
-        this.offset = new THREE.Vector3(0, 2.5, -2);
-        this.lookAtHeight = 1;
+        this.offset = new THREE.Vector3(0, 2.5, 0);
+        this.lookAtHeight = 0.5;
         this.rotation = new THREE.Vector2(0, 0);
     }
 
@@ -27,7 +27,7 @@ export class PlayerCamera {
 
         const lookAt = this.player.playerCollider.end.clone();
         lookAt.y += this.lookAtHeight;
-        this.camera.lookAt(lookAt);
+        this.camera.lookAt(0);
 
         this.camera.getWorldDirection(this.player.playerDirection);
         this.player.playerDirection.y = 0;
