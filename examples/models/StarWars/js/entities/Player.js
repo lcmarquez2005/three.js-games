@@ -239,6 +239,47 @@ gameOver() {
   update(delta) {
     if (!this.model) return;
 
+    // Dibujar corazones para representar las vidas
+    const hudContainer = document.getElementById('hud-container');
+    if (!hudContainer) {
+      const container = document.createElement('div');
+      container.id = 'hud-container';
+      container.style.position = 'absolute';
+      container.style.top = '10px';
+      container.style.left = '10px';
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      container.style.gap = '10px';
+      container.style.zIndex = '1000';
+      document.body.appendChild(container);
+    }
+
+    const hudContainerElement = document.getElementById('hud-container');
+    hudContainerElement.innerHTML = ''; // Limpiar contenido anterior
+
+    // Dibujar corazones
+    const heartContainer = document.createElement('div');
+    heartContainer.style.display = 'flex';
+    heartContainer.style.gap = '5px';
+
+    for (let i = 0; i < this.lives; i++) {
+      const heart = document.createElement('img');
+      heart.src = './js/assets/images/heart.png'; // Ruta de la imagen del corazón
+      heart.style.width = '30px';
+      heart.style.height = '30px';
+      heartContainer.appendChild(heart);
+    }
+
+    hudContainerElement.appendChild(heartContainer);
+
+    // Dibujar puntaje
+    const scoreElement = document.createElement('div');
+    scoreElement.textContent = `Score: ${this.score}`;
+    scoreElement.style.color = '#ffffff';
+    scoreElement.style.fontSize = '20px';
+    scoreElement.style.fontFamily = 'Arial, sans-serif';
+    hudContainerElement.appendChild(scoreElement);
+
     // Actualizar temporizador de invulnerabilidad
     if (this.isInvulnerable) {
       this.invulnerabilityTimer += delta;
