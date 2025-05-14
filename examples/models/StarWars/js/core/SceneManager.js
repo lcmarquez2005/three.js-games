@@ -1,6 +1,9 @@
 import { GLTFLoader } from '/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 
+// ! RECUERDA TODA POSICION EN Z ESTA EN NEGATIVO
+// ! RECUERDA QUE LA CAMARA MIRA HACIA EL EJE Z NEGATIVO
+
 export class SceneManager {
   constructor() {
     this.scene = new THREE.Scene();
@@ -14,7 +17,12 @@ export class SceneManager {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(this.renderer.domElement);
 
-    this.solidObjects = []; // ⬅️ Almacenará los objetos con colisión
+    this.modelPath = './js/assets/models/luis copy 4.glb'; // Ruta al modelo del túnel
+    this.tunnelLength = 0;
+    this.loadedFirst = false; // Bandera para controlar la carga del primer túnel
+        this.tunnelSections = []; // Array para almacenar secciones de túnel
+    this.nextZPosition = -300; // Próxima posición Z para generar
+    this.sectionInterval = 300; // Distancia entre secciones
   }
 
   async init() {
@@ -27,71 +35,93 @@ export class SceneManager {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(10, 10, 10);
     this.scene.add(directionalLight);
-    
-  this.createStarfield();
 
-    await this.loadScene();
-
+    this.createStarfield();
+    await this.loadTunnelModel(); // Cargar modelo una vez
+    this.generateInitialSections(); // Generar secciones iniciales
     this.animate();
   }
 
   setTarget(target) {
     this.target = target;
+    this.player = target; // Asigna el objetivo al jugador
   }
 
-  async loadScene() {
+  createStarfield() {
+    const starGeometry = new THREE.BufferGeometry();
+    const starMaterial = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.1,
+      transparent: true,
+      opacity: 0.8
+    });
+    const estrellas = 20000;
+
+    const starVertices = [];
+    for (let i = 0; i < estrellas; i++) {
+      const x = (Math.random() - 0.5) * 2000;
+      const y = (Math.random() - 0.5) * 2000;
+      const z = (Math.random() - 0.5) * 2000;
+      starVertices.push(x, y, z);
+    }
+
+    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    this.scene.add(stars);
+  }
+
+
+  async loadTunnelModel() {
     const loader = new GLTFLoader();
-    const glb = await loader.loadAsync('./js/assets/models/luis copy 4.glb');
-    console.log('Modelo cargado:', glb.scene);
-
-    this.scene.add(glb.scene);
-
-    // Detectar y guardar objetos sólidos
-// Dentro de SceneManager.js (o donde estés gestionando los objetos)
-glb.scene.traverse((child) => {
-  if (child.isMesh) {
-    child.geometry.computeBoundingBox(); // Esto asegura que tenga BoundingBox
-    this.solidObjects.push(child);  // Agregar solo el objeto al arreglo de objetos sólidos
-    
-    // Añadir una BoxHelper para ver si está bien calculada la hitbox
-    const box = new THREE.BoxHelper(child, 0x00ff00); // Visualiza la hitbox en verde
-    this.scene.add(box);
-  }
-});
-
-
-  }
-  
-createStarfield() {
-  // Crear geometría para las estrellas
-  const starGeometry = new THREE.BufferGeometry();
-  const starMaterial = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.1,
-    transparent: true,
-    opacity: 0.8
-  });
-  const estrellas = 20000;
-
-  // Generar posiciones aleatorias para las estrellas
-  const starVertices = [];
-  for (let i = 0; i < estrellas; i++) {
-    const x = (Math.random() - 0.5) * 2000;
-    const y = (Math.random() - 0.5) * 2000;
-    const z = (Math.random() - 0.5) * 2000;
-    starVertices.push(x, y, z);
+    try {
+      const glb = await loader.loadAsync(this.modelPath);
+      this.tunnelTemplate = glb.scene.clone(); // Clonamos para reusar
+      this.tunnelTemplate.position.set(0, 0, 0);
+      this.tunnelTemplate.visible = false; // Ocultar plantilla
+      this.scene.add(this.tunnelTemplate);
+    } catch (error) {
+      console.error('Error cargando modelo:', error);
+    }
   }
 
-  starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
 
-  // Crear el sistema de partículas (estrellas)
-  const stars = new THREE.Points(starGeometry, starMaterial);
-  this.scene.add(stars);
-}
 
   animate() {
     requestAnimationFrame(() => this.animate());
     this.render();
+  }
+
+
+
+
+
+  generateInitialSections() {
+    // Generar primeras 3 secciones
+    for (let i = 0; i < 3; i++) {
+      this.addTunnelSection(i * -this.sectionInterval);
+    }
+  }
+
+  addTunnelSection(zPosition) {
+    const newSection = this.tunnelTemplate.clone();
+    newSection.position.z = zPosition;
+    newSection.visible = true;
+    this.scene.add(newSection);
+    this.tunnelSections.push(newSection);
+  }
+
+  updateTunnels(playerZ) {
+    // Eliminar secciones que quedaron atrás
+    while (this.tunnelSections[0] && 
+           playerZ - this.tunnelSections[0].position.z < -500) {
+      this.scene.remove(this.tunnelSections.shift());
+    }
+
+    // Generar nuevas secciones según sea necesario
+    while (playerZ > this.nextZPosition + this.sectionInterval) {
+      this.addTunnelSection(this.nextZPosition);
+      this.nextZPosition -= this.sectionInterval;
+    }
   }
 
   render() {
@@ -100,8 +130,10 @@ createStarfield() {
       this.camera.position.set(pos.x, pos.y + 1, pos.z + 3);
       const lookAt = new THREE.Vector3(pos.x, pos.y, pos.z - 10);
       this.camera.lookAt(lookAt);
+      
+      // Actualizar túneles basado en posición del jugador
+      this.updateTunnels(pos.z);
     }
-
     this.renderer.render(this.scene, this.camera);
   }
 }
