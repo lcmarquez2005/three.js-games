@@ -7,9 +7,19 @@ import { EnemyManager } from '../entities/EnemyManager.js';
 export class Game {
   constructor() {
     this.clock = new THREE.Clock();
+    this.backgroundMusic = new Audio('./js/assets/sounds/main-theme.mp3');
   }
 
   async init() {
+        // Configurar música
+    this.backgroundMusic.loop = true;
+    this.backgroundMusic.volume = 0.5;
+    
+    // Iniciar música (nota: muchos navegadores requieren interacción del usuario)
+    // document.addEventListener('click', () => {
+      this.backgroundMusic.play().catch(e => console.log('No se pudo reproducir audio:', e));
+    // }, { once: true });
+
     this.sceneManager = new SceneManager();
     await this.sceneManager.init();
 

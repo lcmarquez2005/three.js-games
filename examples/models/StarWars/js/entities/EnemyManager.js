@@ -33,6 +33,7 @@ export class EnemyManager {
       for (let laser of this.player.lasers) {
         if (checkCollision(laser.mesh, enemy.model, 1)) {
           enemy.destroy();
+          this.player.addScore(); // Incrementar puntaje
           laser.destroy();
           this.player.lasers = this.player.lasers.filter(l => !l.isDestroyed);
           return false;
@@ -49,6 +50,7 @@ export class EnemyManager {
           laser.destroy();
           // Aquí podrías restar vidas o aplicar daño
           console.log("Jugador impactado!");
+          this.player.takeDamage();
           return false;
         }
         return !laser.isDestroyed;

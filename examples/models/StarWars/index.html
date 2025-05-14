@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Escape del Cautiverio</title>
+    <title>Space War - Escape del Cautiverio</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <link type="text/css" rel="stylesheet" href="/main.css">
@@ -12,11 +12,14 @@
             margin: 0;
             overflow: hidden;
             font-family: Arial, sans-serif;
+            background-color: #000;
+            color: white;
         }
         #container {
             position: absolute;
             width: 100%;
             height: 100%;
+            display: none; /* Ocultar inicialmente el contenedor del juego */
         }
         #info {
             position: absolute;
@@ -38,6 +41,7 @@
             padding: 10px 0;
             font-size: 14px;
             z-index: 100;
+            display: none; /* Ocultar inicialmente el footer */
         }
         footer a {
             color: #4CAF50;
@@ -46,18 +50,137 @@
         footer a:hover {
             text-decoration: underline;
         }
+        /* Estilos para la intro al estilo Star Wars */
+        .star-wars-intro {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            perspective:900px;
+        }
+        .star-wars-intro .skip-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10001;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            color: #ffe81f;
+            border: 1px solid #ffe81f;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Arial', sans-serif;
+        }
+        .star-wars-intro .skip-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .crawl {
+            position: relative;
+            top: 0;
+            transform-origin: 50% 100%;
+            animation: crawl 80s linear;
+            width: 90%;
+            text-align: center;
+            color: #ffe81f;
+            font-family: 'Arial', sans-serif;
+            font-size: 48px;
+            font-weight: bold;
+            line-height: 1.5;
+        }
+        .crawl > .title {
+            font-size: 72px;
+            margin-bottom: 40px;
+        }
+        .crawl > .subtitle {
+            font-size: 36px;
+            margin-bottom: 60px;
+        }
+        @keyframes crawl {
+            0% {
+                top: 400vh;
+                transform: rotateX(20deg) translateZ(0);
+            }
+            100% {
+                top: -5000px;
+                transform: rotateX(25deg) translateZ(-2500px);
+            }
+        }
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://www.transparenttextures.com/patterns/stardust.png');
+            animation: stars 200s linear infinite;
+        }
+        @keyframes stars {
+            0% { background-position: 0 0; }
+            100% { background-position: -10000px 5000px; }
+        }
     </style>
 </head>
 <body>
+    <!-- Introducción estilo Star Wars -->
+    <div class="star-wars-intro">
+        <div class="stars"></div>
+        <button class="skip-btn" id="skipIntro">Saltar Introducción (¡Aburrido!)</button>
+        <div class="crawl">
+<div class="title">SPACE WAR<br>EPISODIO MMXXV</div>
+<div class="subtitle">EL ENFRENTAMIENTO <br>MÁS LARGO DE LA HISTORIA</div>
+
+<div class="game-description">
+  <p><strong>JUEGO:</strong> Pilotea un Starfighter de Star Wars en una misión para destruir servidores imperiales. Destruye objetivos, esquiva disparos y sobrevive a Darth Scrum Master antes de que se acabe el tiempo del sprint.</p>
+  <p> Podras Disparar con el click del mouse y con las teclas WASD que ya muy bien conoces para "Programar", podras desplazarte por el espacio.</p>
+</div>
+
+<p>Hace mucho tiempo, en una galaxia exactamente igual a esta...</p>
+<p>El Imperio del Malvado Jefe de Proyectos había esclavizado a todos los desarrolladores para que trabajen con versiones obsoletas de Internet Explorer.</p>
+<p>En un movimiento audaz, la Alianza de los Frameworks Modernos intentó liberar a los programadores oprimidos, pero fueron traicionados por el temible Lord Legacy Code.</p>
+<p>Ahora, en las profundidades de la Estación Espacial Node 13, el último piloto de la resistencia, conocido solo como "El que no commitea en master", ha sido capturado.</p>
+<p>Con solo una laptop con batería al 3% y una conexión WiFi intermitente, deberás escapar destruyendo los servidores del Imperio antes de que se acabe el tiempo del sprint.</p>
+<p>Pero cuidado, el temible Darth Scrum Master ronda los pasillos, y no aceptará excusas por no cumplir con los objetivos del sprint.</p>
+<p>Tus únicas armas: un teclado mecánico RGB (configurado en modo "productividad") y la habilidad de buscar en StackOverflow a velocidades sublumínicas.</p>
+
+<div class="game-features">
+  <p>En esta aventura épica, encontrarás:</p>
+  <p>- Bugs más persistentes que un PM el viernes a las 5:59 PM</p>
+  <p>- Documentación tan clara como un mensaje de error de C++</p>
+  <p>- Y el temido Merge Conflict que amenaza con destruir todo tu trabajo</p>
+</div>
+
+<p>¿Podrás sobrevivir a los code reviews implacables? ¿Encontrarás la variable perdida que hace funcionar todo el sistema? ¿O acabarás como tantos otros, condenado a mantener código legacy por toda la eternidad?</p>
+<p>La historia... o al menos este texto ridículamente largo... está a punto de terminar...</p>
+<p>Pero tu aventura recién comienza...</p>
+<p>Que la Fuerza del Ctrl+C y el Ctrl+V te acompañe...</p>
+<p>FIN... ¿O QUIZÁS SOLO EL COMIENZO?</p>
+<p>, y recuerda nunca has matado suficientes cazas</p>
+        </div>
+    </div>
+
+    <!-- Pantalla de carga (se mostrará después de la intro) -->
+    <div id="loading-screen" style="display: none;">
+        <h1>PREPARANDO NAVEGACIÓN HIPERESPACIAL</h1>
+        <div class="loader"></div>
+        <p>Compilando shaders... Cargando texturas... Inicializando física...</p>
+    </div>
+
+    <!-- Elementos del juego (inicialmente ocultos) -->
     <div id="info">
-        Escape del Cautiverio - Destruye todos los objetivos antes de que el tiempo se acabe<br />
-        MOUSE para mirar alrededor y lanzar bolas<br />
-        WASD para moverte y ESPACIO para saltar
+        Space War - Destruye la mayor cantidad de cazas que puedas<br />
+        WASD para moverte y Click para disparar,
+        Da click para iniciar el juego<br />
     </div>
     <div id="container"></div>
 
     <footer>
-        © 2025 Escape del Cautiverio | Desarrollado por <a href="#" target="_blank">Luis Strociak</a> | 
+        © 2025 Space Wars | Desarrollado por <a href="#" target="_blank">Luis Strociak</a> | 
         <a href="#" id="showRankings">Ver Rankings</a>
     </footer>
 
@@ -73,6 +196,83 @@
     <!-- Agrega el JS de SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
-    <script type="module" src="js/main.js"></script>
+    <!-- Script de introducción -->
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+                  this.sound = new Audio('./js/assets/sounds/inicio.mp3');
+      this.sound.volume = 0.5;
+      this.sound.play().catch(error => console.log("Audio error:", error));
+            const intro = document.querySelector('.star-wars-intro');
+            const skipBtn = document.getElementById('skipIntro');
+            const loadingScreen = document.getElementById('loading-screen');
+            const crawl = document.querySelector('.crawl');
+            
+            // Opción para saltar la intro
+            skipBtn.addEventListener('click', () => {
+                intro.style.display = 'none';
+                startGame();
+            });
+            
+            // Cuando termine la animación de la intro
+            crawl.addEventListener('animationend', () => {
+                intro.style.display = 'none';
+                startGame();
+            });
+            
+            // Función para iniciar el juego después de la intro
+            async function startGame() {
+                loadingScreen.style.display = 'flex';
+                
+                // Pequeña pausa para el efecto dramático
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Pedir nombre al jugador (versión más breve que antes)
+                const { value: playerName } = await Swal.fire({
+                    title: 'IDENTIFICACIÓN DEL PILOTO',
+                    input: 'text',
+                    inputLabel: 'Ingresa tu nombre o alias de piloto:',
+                    inputPlaceholder: 'Ej: "El Destructor de Bugs", "Master YodaScript", etc.',
+                    background: '#000',
+                    color: '#ffe81f',
+                    confirmButtonColor: '#4CAF50',
+                    inputValidator: (value) => !value && '¡El Imperio necesita saber cómo llamarte!'
+                });
+                
+                // Mensaje final antes de cargar el juego
+                await Swal.fire({
+                    title: `¡PREPÁRATE, ${playerName || 'PILOTO DESCONOCIDO'}!`,
+                    html: `<p>La Estación Espacial Node 13 te espera...</p>
+                          <p>Recuerda:</p>
+                          <ul style="text-align: left;">
+                            <li>WASD = Movimiento</li>
+                            <li>MOUSE = Disparar</li>
+                            <li>ESPACIO = Saltar (o rezar)</li>
+                          </ul>`,
+                    icon: 'warning',
+                    confirmButtonText: '¡AL INFINITO Y MÁS ALLÁ!',
+                    background: '#000',
+                    color: '#ffe81f',
+                    confirmButtonColor: '#4CAF50'
+                });
+                
+                // Ocultar loading y mostrar juego
+                loadingScreen.style.display = 'none';
+                document.getElementById('container').style.display = 'block';
+                document.getElementById('info').style.display = 'block';
+                document.querySelector('footer').style.display = 'block';
+                
+                // Guardar nombre del jugador
+                window.playerName = playerName || "Piloto Anónimo";
+                this.sound.pause();
+                
+                // Cargar el juego principal
+                const gameScript = document.createElement('script');
+                gameScript.type = 'module';
+                gameScript.src = './js/main.js';
+                document.body.appendChild(gameScript);
+            }
+
+        });
+    </script>
 </body>
 </html>

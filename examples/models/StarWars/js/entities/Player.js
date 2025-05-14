@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '/examples/jsm/loaders/GLTFLoader.js';
 import { Laser } from './Laser.js';
-import { Input } from '../core/Input.js';
+import { EffectsManager } from '../core/EffectsManager.js';
 
 export class Player {
   constructor(scene, input) {
@@ -16,9 +16,18 @@ export class Player {
     this.pitchSpeed = 0.1;
     this.yawSpeed = 0.08;
     this.bankingFactor = 0.3;
+        this.effects = new EffectsManager(this.scene);
+    
 
     this.model = null;
     this.currentSpeed = 0;
+
+        // Sistema de vidas y puntaje
+    this.lives = 3;
+    this.score = 0;
+    this.isInvulnerable = false;
+    this.invulnerabilityDuration = 1.5; // segundos
+    this.invulnerabilityTimer = 0;
     
     // Sistema de disparo
     this.lasers = [];
@@ -130,9 +139,115 @@ export class Player {
 
     this.timeSinceLastShot = 0;
   }
+  takeDamage() {
+  if (this.isInvulnerable) return;
+  
+  this.lives--;
+  this.isInvulnerable = true;
+  this.invulnerabilityTimer = 0;
+  
+  // Efecto visual de daño (parpadeo)
 
+      this.effects.createExplosion(this.model.position, {
+        color: 0xff3300,
+        particleCount: 150
+      });
+     
+  
+  // Notificación con SWAL2
+  Swal.fire({
+    title: '¡Impacto!',
+    text: `Has perdido una vida. Te quedan ${this.lives} vidas.`,
+    icon: 'error',
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 2000,
+    timerProgressBar: true,
+    background: '#1a1a2e',
+    color: '#ffffff',
+    iconColor: '#ff4d4d'
+  });
+  
+  if (this.lives <= 0) {
+    this.gameOver();
+  }
+}
+
+addScore(points = 1) {
+  this.score += points;
+  
+  // Notificación con SWAL2
+  Swal.fire({
+    title: '¡Punto!',
+    text: `+${points} punto(s). Total: ${this.score}`,
+    icon: 'success',
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 1500,
+    timerProgressBar: true,
+    background: '#1a1a2e',
+    color: '#ffffff',
+    iconColor: '#4ade80'
+  });
+}
+
+gameOver() {
+  // Pantalla de Game Over con opciones
+  Swal.fire({
+    title: '¡Juego Terminado!',
+    html: `<h2 style="color: #f8f8f8">Puntaje final: ${this.score}</h2>`,
+    icon: 'error',
+    background: '#1a1a2e',
+    color: '#ffffff',
+    confirmButtonText: 'Volver a Jugar?',
+    confirmButtonColor: '#3085d6',
+    showCancelButton: true,
+    cancelButtonText: 'Salir',
+    cancelButtonColor: '#d33',
+    backdrop: `
+      rgba(0,0,0,0.8)
+      url("https://i.gifer.com/7VE.gif")
+      center top
+      no-repeat
+    `,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    allowEnterKey: true,
+    focusConfirm: true
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Recargar la página para reiniciar
+      window.location.reload();
+    } else {
+      // Cerrar la pestaña (funciona en la mayoría de navegadores)
+      window.close();
+      
+      // Alternativa si window.close() no funciona
+      setTimeout(() => {
+        window.location.href = "about:blank";
+      }, 500);
+    }
+  });
+  
+  // Detener el juego (depende de tu implementación)
+  if (typeof gameLoop !== 'undefined') {
+    cancelAnimationFrame(gameLoop);
+  }
+}
   update(delta) {
     if (!this.model) return;
+
+    // Actualizar temporizador de invulnerabilidad
+    if (this.isInvulnerable) {
+      this.invulnerabilityTimer += delta;
+      if (this.invulnerabilityTimer >= this.invulnerabilityDuration) {
+        this.isInvulnerable = false;
+        // Aquí podrías quitar cualquier efecto visual de invulnerabilidad
+      }
+    }
+
 
     // Control de velocidad
     if (this.input.isKeyPressed('ArrowUp')) {

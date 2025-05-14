@@ -9,14 +9,9 @@ export class EffectsManager {
   }
 
   async initSound() {
-    try {
-      const buffer = await this.audioLoader.loadAsync('./js/assets/sounds/explosion.mp3');
-      this.sound = new THREE.Audio(this.scene.listener);
-      this.sound.setBuffer(buffer);
-      this.sound.setVolume(0.5);
-    } catch (error) {
-      console.error("Error loading sound:", error);
-    }
+      this.sound = new Audio('./js/assets/sounds/explosion.mp3');
+      this.sound.volume = 0.3;
+      this.sound.play().catch(error => console.log("Audio error:", error));
   }
 
   createExplosion(position, options = {}) {
