@@ -296,13 +296,13 @@ gameOver() {
 
 
     // Control de velocidad
-    if (this.input.isKeyPressed('ArrowUp')) {
+    if (this.input.isKeyPressed('ShiftLeft')) {
       this.currentSpeed = THREE.MathUtils.lerp(
         this.currentSpeed,
         this.maxSpeed,
         this.acceleration * delta
       );
-    } else if (this.input.isKeyPressed('ArrowDown')) {
+    } else if (this.input.isKeyPressed('ControlLeft')) {
       this.currentSpeed = THREE.MathUtils.lerp(
         this.currentSpeed,
         this.maxSpeed * 0.1,
@@ -341,8 +341,8 @@ gameOver() {
     const targetEuler = new THREE.Euler().setFromQuaternion(this.model.quaternion);
 
     // Alabeo (Q/E)
-    if (this.input.isKeyPressed('ArrowLeft')) targetEuler.z += this.rollSpeed;
-    if (this.input.isKeyPressed('ArrowRight')) targetEuler.z -= this.rollSpeed;
+    if (this.input.isKeyPressed('KeyE')) targetEuler.z += this.rollSpeed;
+    if (this.input.isKeyPressed('KeyQ')) targetEuler.z -= this.rollSpeed;
 
     // Cabeceo (W/S)
     if (this.input.isKeyPressed('KeyW')) targetEuler.x -= this.pitchSpeed;
@@ -375,7 +375,7 @@ gameOver() {
     // Sistema de disparo
     // Sistema de disparo - CORRECCIÓN DEL CLICK
     this.timeSinceLastShot += delta;
-    if (this.input.mouseDown) {  // Acceder a la propiedad directamente
+    if (this.input.mouseDown || this.input.isKeyPressed('Space')) {  // Acceder a la propiedad directamente
       this.shootLaser();
     }
 
