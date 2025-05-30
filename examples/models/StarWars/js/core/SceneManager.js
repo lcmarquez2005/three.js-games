@@ -1,5 +1,7 @@
 import { GLTFLoader } from '../../../../jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
+import { VRButton } from 'https://unpkg.com/three@0.160.0/examples/jsm/webxr/VRButton.js';
+
 
 // ! RECUERDA TODA POSICION EN Z ESTA EN NEGATIVO
 // ! RECUERDA QUE LA CAMARA MIRA HACIA EL EJE Z NEGATIVO
@@ -7,23 +9,34 @@ import * as THREE from 'three';
 export class SceneManager {
   constructor() {
     this.scene = new THREE.Scene();
+
+    // Cámara normal
     this.camera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / window.innerHeight,
       0.1,
       10000
     );
+
+    // Crear un grupo para VR
+    this.vrGroup = new THREE.Group();
+    this.scene.add(this.vrGroup);
+
+    // Poner la cámara dentro del grupo VR
+    this.vrGroup.add(this.camera);
+
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.xr.enabled = true; // Habilitar XR
     document.body.appendChild(this.renderer.domElement);
 
-    this.modelPath = './js/assets/models/luis copy 4.glb'; // Ruta al modelo del túnel
+    this.modelPath = './js/assets/models/luis copy 4.glb';
     this.tunnelLength = 0;
-    this.loadedFirst = false; // Bandera para controlar la carga del primer túnel
-        this.tunnelSections = []; // Array para almacenar secciones de túnel
-    this.nextZPosition = 0; // Comenzamos desde 0 y generamos hacia atrás
-    this.sectionInterval = 300; // Longitud de cada sección
-    this.sectionsAhead = 3; // Secciones a mantener adelante del jugador
+    this.loadedFirst = false;
+    this.tunnelSections = [];
+    this.nextZPosition = 0;
+    this.sectionInterval = 300;
+    this.sectionsAhead = 3;
   }
 
   async init() {
@@ -38,14 +51,18 @@ export class SceneManager {
     this.scene.add(directionalLight);
 
     this.createStarfield();
-    await this.loadTunnelModel(); // Cargar modelo una vez
-    this.generateInitialSections(); // Generar secciones iniciales
+    await this.loadTunnelModel();
+    this.generateInitialSections();
+
+    // Botón VR
+    document.body.appendChild(VRButton.createButton(this.renderer));
+
     this.animate();
   }
 
   setTarget(target) {
     this.target = target;
-    this.player = target; // Asigna el objetivo al jugador
+    this.player = target;
   }
 
   createStarfield() {
@@ -71,14 +88,13 @@ export class SceneManager {
     this.scene.add(stars);
   }
 
-
   async loadTunnelModel() {
     const loader = new GLTFLoader();
     try {
       const glb = await loader.loadAsync(this.modelPath);
-      this.tunnelTemplate = glb.scene.clone(); // Clonamos para reusar
+      this.tunnelTemplate = glb.scene.clone();
       this.tunnelTemplate.position.set(0, 0, 0);
-      this.tunnelTemplate.visible = false; // Ocultar plantilla
+      this.tunnelTemplate.visible = false;
       this.scene.add(this.tunnelTemplate);
     } catch (error) {
       console.error('Error cargando modelo:', error);
@@ -86,15 +102,14 @@ export class SceneManager {
   }
 
   animate() {
-    requestAnimationFrame(() => this.animate());
-    this.render();
+    this.renderer.setAnimationLoop(() => this.render());
   }
 
   generateInitialSections() {
-    // Generar primeras 3 secciones
     for (let i = 0; i < 3; i++) {
       this.addTunnelSection(i * -this.sectionInterval);
     }
+    this.nextZPosition = -this.sectionInterval * 3;
   }
 
   addTunnelSection(zPosition) {
@@ -106,13 +121,13 @@ export class SceneManager {
   }
 
   updateTunnels(playerZ) {
-    // Eliminar secciones demasiado atrás (optimización)
-    while (this.tunnelSections.length > 0 && 
-           playerZ - this.tunnelSections[0].position.z < -this.sectionInterval * 2) {
+    while (
+      this.tunnelSections.length > 0 &&
+      playerZ - this.tunnelSections[0].position.z < -this.sectionInterval * 2
+    ) {
       this.scene.remove(this.tunnelSections.shift());
     }
 
-    // Generar nuevas secciones hacia adelante (eje Z negativo)
     while (this.nextZPosition > playerZ - this.sectionInterval * this.sectionsAhead) {
       this.addTunnelSection(this.nextZPosition);
       this.nextZPosition -= this.sectionInterval;
@@ -122,13 +137,21 @@ export class SceneManager {
   render() {
     if (this.target) {
       const pos = this.target.position;
-      this.camera.position.set(pos.x, pos.y + 1, pos.z + 3);
-      const lookAt = new THREE.Vector3(pos.x, pos.y, pos.z - 10);
-      this.camera.lookAt(lookAt);
-      
-      // Actualizar túneles basado en posición del jugador
+
+      if (!this.renderer.xr.isPresenting) {
+        // 🎮 Modo normal (3ra persona)
+        this.camera.position.set(pos.x, pos.y + 1, pos.z + 3); // detrás y arriba
+        const lookAt = new THREE.Vector3(pos.x, pos.y, pos.z);
+        this.camera.lookAt(lookAt);
+      } else {
+        // 🥽 Modo VR (1ra persona)
+        this.vrGroup.position.set(pos.x, pos.y -1, pos.z); // cámara en cabeza
+      }
+
+
       this.updateTunnels(pos.z);
     }
+
     this.renderer.render(this.scene, this.camera);
   }
 }

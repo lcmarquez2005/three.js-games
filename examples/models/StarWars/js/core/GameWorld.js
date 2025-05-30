@@ -13,35 +13,45 @@ export class GameWorld {
         this.worldModel = null;
         this.helper = null;
         this.debugMode = false;
-        
+
         // Texturas
         this.groundTexture = null;
         this.wallTexture = null;
-        
+
         this.initScene();
     }
 
     initScene() {
         this.scene.background = new THREE.Color(0x00aae4);
-        this.scene.fog = new THREE.Fog(0xc5c6d0, 1, 30);
+        this.scene.fog = new THREE.Fog(0xc5c6d0, 1, 50); // Nieblina extendida
+
+        // Iluminación para VR
+        const ambient = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        this.scene.add(ambient);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        dirLight.castShadow = true;
+        this.scene.add(dirLight);
     }
+
 
     async loadTextures() {
         // Cargar texturas
         this.groundTexture = await this.textureLoader.loadAsync('../../textures/minecraft/atlas.png');
         this.wallTexture = await this.textureLoader.loadAsync('../../textures/minecraft/dirt.png');
-        
+
         // Configurar texturas
         [this.groundTexture, this.wallTexture].forEach(texture => {
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(0.05, 0.05);
+            texture.repeat.set(0.1, 0.1); // Mejora en VR
         });
     }
 
     async loadWorld() {
         await this.loadTextures();
-        
+
         const loader = new GLTFLoader().setPath('./../../models/gltf/');
         loader.load('collision-world.glb', (gltf) => {
             this.scene.add(gltf.scene);
@@ -51,15 +61,15 @@ export class GameWorld {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
-                    
+
                     // Determinar qué textura usar basado en el nombre del objeto o su normal
                     let textureToUse = this.groundTexture;
-                    
+
                     // Opción 1: Usar el nombre del objeto para decidir
                     // if (child.name.toLowerCase().includes('wall')) {
                     //     textureToUse = this.wallTexture;
                     // }
-                    
+
                     // Opción 2: Usar la orientación (normales) para decidir
                     const normal = new THREE.Vector3();
                     child.geometry.computeVertexNormals();
@@ -69,7 +79,7 @@ export class GameWorld {
                             textureToUse = this.wallTexture;
                         }
                     }
-                    
+
                     const material = new THREE.MeshStandardMaterial({
                         map: textureToUse,
                         roughness: 0.7,
