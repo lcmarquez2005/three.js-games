@@ -28,6 +28,18 @@ export class Enemy {
     this.targetPosition = null; // Posición objetivo para movimiento suave
   }
 
+    // Nuevo: Método para resetear el enemigo
+  reset() {
+    this.health = this.maxHealth;
+    this.isDestroyed = false;
+    this.model.position.set(0, 0, -100);
+    this.model.rotation.set(0, 0, 0);
+    
+    // Limpiar cualquier laser existente
+    this.lasers.forEach(laser => laser.destroy());
+    this.lasers = [];
+  }
+
   async loadModel() {
     const loader = new GLTFLoader();
     const glb = await loader.loadAsync('./js/assets/models/villano.glb');

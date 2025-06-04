@@ -14,24 +14,40 @@ export class Game {
     this.controllers = [];
     this.originalReferenceSpace = null;
     this.lastPosition = new THREE.Vector3();
+    this.isLoading = true; // Nuevo: Bandera de carga
+    this.loadingProgress = 0; // Nuevo: Progreso de carga
+    this.totalAssets = 3; // Ajustar según activos principales
   }
 
-  async init() {
+ async init() {
     try {
+      // Mostrar pantalla de carga
+      this.showLoadingScreen();
+
       // 1. Configuración inicial de audio
       this.configureAudio();
+      this.updateProgress(10); // Actualizar progreso
 
       // 2. Inicialización de la escena
       await this.initializeScene();
+      this.updateProgress(30); // Actualizar progreso
 
       // 3. Configuración de VR
       this.setupVR();
+      this.updateProgress(40); // Actualizar progreso
 
       // 4. Configuración de controladores VR
       await this.setupVRControllers();
+      this.updateProgress(60); // Actualizar progreso
 
       // 5. Inicialización de entidades y sistemas de juego
       await this.initializeGameEntities();
+      this.updateProgress(90); // Actualizar progreso
+
+      // Finalizar carga
+      this.isLoading = false;
+      this.hideLoadingScreen();
+      console.log("Todos los recursos han terminado de cargar");
 
       // 6. Inicio del bucle principal
       this.startGameLoop();
@@ -42,18 +58,110 @@ export class Game {
     }
   }
 
+  
+  // Nuevo: Mostrar pantalla de carga
+  showLoadingScreen() {
+    this.loadingScreen = document.createElement('div');
+    this.loadingScreen.style.position = 'fixed';
+    this.loadingScreen.style.top = '0';
+    this.loadingScreen.style.left = '0';
+    this.loadingScreen.style.width = '100%';
+    this.loadingScreen.style.height = '100%';
+    this.loadingScreen.style.backgroundColor = 'black';
+    this.loadingScreen.style.zIndex = '1000';
+    this.loadingScreen.style.display = 'flex';
+    this.loadingScreen.style.flexDirection = 'column';
+    this.loadingScreen.style.justifyContent = 'center';
+    this.loadingScreen.style.alignItems = 'center';
+    this.loadingScreen.style.color = 'white';
+    this.loadingScreen.style.fontFamily = 'Arial, sans-serif';
+    
+    this.loadingText = document.createElement('div');
+    this.loadingText.textContent = 'Cargando recursos... 0%';
+    this.loadingText.style.fontSize = '24px';
+    this.loadingText.style.marginBottom = '20px';
+    
+    this.progressBar = document.createElement('div');
+    this.progressBar.style.width = '300px';
+    this.progressBar.style.height = '20px';
+    this.progressBar.style.backgroundColor = '#333';
+    this.progressBar.style.borderRadius = '10px';
+    this.progressBar.style.overflow = 'hidden';
+    
+    this.progressFill = document.createElement('div');
+    this.progressFill.style.width = '0%';
+    this.progressFill.style.height = '100%';
+    this.progressFill.style.backgroundColor = '#4CAF50';
+    this.progressFill.style.transition = 'width 0.3s ease';
+    
+    this.progressBar.appendChild(this.progressFill);
+    this.loadingScreen.appendChild(this.loadingText);
+    this.loadingScreen.appendChild(this.progressBar);
+    
+    document.body.appendChild(this.loadingScreen);
+  }
+
+  
+  // Nuevo: Actualizar progreso de carga
+  updateProgress(percent) {
+    this.loadingProgress = percent;
+    
+    if (this.loadingText) {
+      this.loadingText.textContent = `Cargando recursos... ${percent}%`;
+    }
+    
+    if (this.progressFill) {
+      this.progressFill.style.width = `${percent}%`;
+    }
+  }
+
+    // Nuevo: Ocultar pantalla de carga
+  hideLoadingScreen() {
+    if (this.loadingScreen) {
+      document.body.removeChild(this.loadingScreen);
+      this.loadingScreen = null;
+    }
+  }
+
+
   async configureAudio() {
     try {
       this.backgroundMusic.loop = true;
       this.backgroundMusic.volume = 0.5;
-      await this.backgroundMusic.play();
+      
+      // Esperar a que el audio esté listo para reproducir
+      await new Promise((resolve) => {
+        this.backgroundMusic.oncanplaythrough = resolve;
+        this.backgroundMusic.load();
+      });
+      
+      // Reproducir solo si el usuario ya ha interactuado
+      const playAudio = () => {
+        if (document.visibilityState === 'visible') {
+          this.backgroundMusic.play().catch(e => {
+            console.warn('Reproducción automática bloqueada:', e);
+          });
+          document.removeEventListener('click', playAudio);
+        }
+      };
+      
+      document.addEventListener('click', playAudio);
     } catch (e) {
       console.warn('No se pudo reproducir audio:', e);
     }
   }
 
+
+
   async initializeScene() {
     this.sceneManager = new SceneManager();
+    
+    // Agregar callback para reportar progreso de carga
+    this.sceneManager.onProgress = (progress) => {
+      const sceneProgress = 30 * (progress / 100); // 30% del total
+      this.updateProgress(10 + sceneProgress); // Sumar al progreso base
+    };
+    
     await this.sceneManager.init();
   }
 
@@ -105,6 +213,7 @@ export class Game {
     }
   }
 
+
   async setupVRControllers() {
     const controllerModelFactory = new XRControllerModelFactory();
     
@@ -124,34 +233,50 @@ export class Game {
       grip.add(controllerModelFactory.createControllerModel(grip));
       this.sceneManager.scene.add(grip);
     }
+    
+    this.updateProgress(70); // Actualizar progreso
   }
 
   async initializeGameEntities() {
     // Input system
     this.input = new Input();
     
-    // Player
+    // Player con reporte de progreso
     this.player = new Player(this.sceneManager.scene, this.input);
+    
+    // Agregar callback para reportar progreso de carga del jugador
+    this.player.onProgress = (progress) => {
+      const playerProgress = 30 * (progress / 100); // 30% del total
+      this.updateProgress(60 + playerProgress); // Sumar al progreso base
+    };
+    
     await this.player.loadModel();
-    this.player.setControllers(this.controllers);
     
     // Configurar cámara para seguir al jugador
     this.sceneManager.setTarget(this.player.model);
     
-    // Enemy system
+    // Enemy system - pero no empezamos a generar enemigos aún
     this.enemyManager = new EnemyManager(this.sceneManager.scene, this.player);
+    
+    // Marcar que la carga del jugador ha terminado
+    this.updateProgress(90);
   }
-
+  
+  
   startGameLoop() {
     this.sceneManager.renderer.setAnimationLoop((timestamp, frame) => {
       try {
         const delta = this.clock.getDelta();
-        this.processInputs(frame);
-        this.updateGameState(delta);
         
-        // Limitar movimiento físico en VR
-        if (this.sceneManager.renderer.xr.isPresenting && frame) {
-          this.limitPhysicalMovement(frame);
+        // Solo procesar inputs y actualizar estado si no estamos cargando
+        if (!this.isLoading) {
+          this.processInputs(frame);
+          this.updateGameState(delta);
+          
+          // Limitar movimiento físico en VR
+          if (this.sceneManager.renderer.xr.isPresenting && frame) {
+            this.limitPhysicalMovement(frame);
+          }
         }
         
         this.sceneManager.render();
@@ -160,7 +285,6 @@ export class Game {
       }
     });
   }
-
   limitPhysicalMovement(frame) {
     // Obtener la posición del visor
     const viewerPose = frame.getViewerPose(this.originalReferenceSpace);
@@ -222,8 +346,11 @@ export class Game {
   }
 
   updateGameState(delta) {
-    this.player.update(delta, this.sceneManager.solidObjects);
-    this.enemyManager.update(delta);
+    // Solo actualizar jugador y enemigos si no estamos cargando
+    if (!this.isLoading) {
+      this.player.update(delta, this.sceneManager.solidObjects);
+      this.enemyManager.update(delta);
+    }
   }
 
   handleControllerSelect(controllerIndex) {
