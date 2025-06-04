@@ -27,7 +27,7 @@ export class Player {
     this.acceleration = 1;
     this.rollSpeed = 0.1;
     this.pitchSpeed = 0.1;
-    this.yawSpeed = 0.08;
+    this.yawSpeed = 0.1;
     this.bankingFactor = 0.3;
     this.effects = new EffectsManager(this.scene);
 
@@ -100,6 +100,53 @@ isTriggerPressed() {
         }
     }
     return false;
+}
+// En Player.js, añade este método a la clase Player
+handleJoystickInput(x, y) {
+    if (!this.model) return;
+    
+    // Configuración de sensibilidad
+    const sensitivity = 0.1;
+    const deadZone = 0.4;
+    
+    // Aplicar zona muerta
+    if (Math.abs(x) < deadZone) x = 0;
+    if (Math.abs(y) < deadZone) y = 0;
+    
+    // Si no hay input significativo, no hacer nada
+    if (x === 0 && y === 0) return;
+    
+    // Escalar el input por sensibilidad
+    x *= sensitivity;
+    y *= sensitivity;
+    
+    // Obtener la rotación actual como Euler
+    const euler = new THREE.Euler().setFromQuaternion(this.model.quaternion);
+    
+    // Aplicar rotación basada en el joystick
+    // euler.y += x * this.yawSpeed;
+    // euler.x += y * this.pitchSpeed;
+    
+
+    // Convertir de vuelta a quaternion
+    const targetQuat = new THREE.Quaternion().setFromEuler(euler);
+    
+    // Suavizar la transición
+    this.model.quaternion.slerp(targetQuat, 0.2);
+    
+    // Movimiento lateral basado en el joystick (opcional)
+    const moveX = x * this.speed * 0.1;
+    const moveY = y * this.speed * 0.1;
+    
+    const newPos = this.model.position.clone();
+    newPos.x += moveX;
+    newPos.y -= moveY;
+    
+    // Aplicar límites
+    newPos.x = THREE.MathUtils.clamp(newPos.x, this.bounds.minX, this.bounds.maxX);
+    newPos.y = THREE.MathUtils.clamp(newPos.y, this.bounds.minY, this.bounds.maxY);
+    
+    this.model.position.copy(newPos);
 }
 
 

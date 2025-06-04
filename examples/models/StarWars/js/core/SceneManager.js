@@ -1,10 +1,6 @@
 import { GLTFLoader } from '../../../../jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
-import { VRButton } from 'https://unpkg.com/three@0.160.0/examples/jsm/webxr/VRButton.js';
-
-
-// ! RECUERDA TODA POSICION EN Z ESTA EN NEGATIVO
-// ! RECUERDA QUE LA CAMARA MIRA HACIA EL EJE Z NEGATIVO
+import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 export class SceneManager {
   constructor() {
@@ -139,15 +135,14 @@ export class SceneManager {
       const pos = this.target.position;
 
       if (!this.renderer.xr.isPresenting) {
-        // 🎮 Modo normal (3ra persona)
-        this.camera.position.set(pos.x, pos.y + 1, pos.z + 3); // detrás y arriba
-        const lookAt = new THREE.Vector3(pos.x, pos.y, pos.z);
+        // Cámara normal sigue al jugador
+        this.camera.position.set(pos.x, pos.y + 1, pos.z + 3);
+        const lookAt = new THREE.Vector3(pos.x, pos.y, pos.z - 10);
         this.camera.lookAt(lookAt);
       } else {
-        // 🥽 Modo VR (1ra persona)
-        this.vrGroup.position.set(pos.x, pos.y -1, pos.z); // cámara en cabeza
+        // En VR, mueve el grupo que contiene la cámara
+        this.vrGroup.position.set(pos.x, pos.y +0.6, pos.z+0.3);
       }
-
 
       this.updateTunnels(pos.z);
     }
